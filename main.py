@@ -53,5 +53,5 @@ def require_key(x_api_key: str | None = Header(default=None)):
 
 @app.get("/")
 def root():
-    return {"status": "HOPE IS ALIVE"}
+    return {"status": "HOPE"}
 
