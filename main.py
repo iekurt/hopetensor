@@ -4,7 +4,7 @@ app = FastAPI()
 
 @app.get("/")
 def root():
-    return {"ok": True}
+    return {"status": "OK"}
 
 @app.get("/health")
 def health():
