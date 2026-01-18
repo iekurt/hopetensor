@@ -51,5 +51,9 @@ def require_key(x_api_key: str | None = Header(default=None)):
         raise HTTPException(status_code=401, detail="Unauthorized")
 
 
+@app.get("/")
+def root():
+    return {"status": "ok"}
+
 
 
