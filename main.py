@@ -1,12 +1,16 @@
+import os
 from fastapi import FastAPI
 
-app = FastAPI()
+ENV = os.getenv("ENV", "dev")
 
-@app.get("/")
-def root():
-    return {"ok": True}
+app = FastAPI(
+    docs_url=None if ENV == "prod" else "/docs",
+    redoc_url=None if ENV == "prod" else "/redoc",
+    openapi_url=None if ENV == "prod" else "/openapi.json",
+)
 
 @app.get("/health")
 def health():
     return {"status": "ok"}
+
 
