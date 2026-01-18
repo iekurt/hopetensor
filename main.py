@@ -26,4 +26,20 @@ app = FastAPI(
 def health():
     return {"status": "ok"}
 
+import os
+from fastapi.middleware.cors import CORSMiddleware
+
+allowed = os.getenv("CORS_ORIGINS", "")
+origins = [x.strip() for x in allowed.split(",") if x.strip()]
+
+if origins:
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=origins,
+        allow_credentials=False,
+        allow_methods=["GET","POST","PUT","DELETE","OPTIONS"],
+        allow_headers=["*"],
+    )
+
+
 
