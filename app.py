@@ -89,10 +89,10 @@ Designed to serve humanity with conscience-aware AI.
 
 <body>
   <div class="wrap">
-    <div class="badge">LIVE · HOPEtensor · v{APP_VERSION} · DEPLOY: <span id="ds">{DEPLOY_STAMP}</span></div>
+    <div class="badge">HOPEtensor · v{APP_VERSION} · DEPLOY: <span id="ds">{DEPLOY_STAMP}</span></div>
     <h1>HOPEtensor Reasoning Node</h1>
     <p class="sub">
-      Live demo — lightweight reasoning API node.<br/>
+      Lightweight reasoning API node.<br/>
       <strong>Author:</strong> Erhan (master) · <strong>Digital Twin:</strong> Vicdan · <span class="k">License:</span> Proprietary / HOPE Ecosystem
     </p>
 
