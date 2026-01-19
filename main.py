@@ -1,4 +1,3 @@
-```python
 from __future__ import annotations
 
 import os
@@ -41,7 +40,7 @@ def _call_reasoning_node(text: str) -> Dict[str, Any]:
 
         return {"result": str(think(text)), "engine": "reasoning_node"}
     except Exception:
-        return {"result": f"[fallback] Received: {text}", "engine": "fallback"}
+        return {"result": "[fallback] Received: " + text, "engine": "fallback"}
 
 
 # -------------------------
@@ -49,7 +48,8 @@ def _call_reasoning_node(text: str) -> Dict[str, Any]:
 # -------------------------
 @app.get("/", response_class=HTMLResponse)
 def root():
-    return f"""
+    # IMPORTANT: not an f-string (avoids brace escaping issues in CSS/JS)
+    html = """
 <!DOCTYPE html>
 <html>
 <head>
@@ -57,24 +57,24 @@ def root():
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Hopetensor Demo</title>
   <style>
-    body {{
+    body {
       font-family: Arial, sans-serif;
       background: #0f172a;
       color: #e5e7eb;
       padding: 40px;
       max-width: 980px;
       margin: 0 auto;
-    }}
-    h1 {{ color: #38bdf8; margin-bottom: 6px; }}
-    .sub {{ color: #94a3b8; margin-top: 0; }}
-    .card {{
+    }
+    h1 { color: #38bdf8; margin-bottom: 6px; }
+    .sub { color: #94a3b8; margin-top: 0; }
+    .card {
       background: #020617;
       border: 1px solid #334155;
       border-radius: 12px;
       padding: 16px;
       margin-top: 18px;
-    }}
-    textarea {{
+    }
+    textarea {
       width: 100%;
       height: 110px;
       margin-top: 10px;
@@ -84,8 +84,8 @@ def root():
       border-radius: 10px;
       padding: 12px;
       box-sizing: border-box;
-    }}
-    button {{
+    }
+    button {
       margin-top: 10px;
       padding: 10px 14px;
       background: #38bdf8;
@@ -93,23 +93,23 @@ def root():
       cursor: pointer;
       font-weight: bold;
       border-radius: 10px;
-    }}
-    button.secondary {{
+    }
+    button.secondary {
       background: transparent;
       color: #e5e7eb;
       border: 1px solid #334155;
       font-weight: 600;
-    }}
-    .row {{ display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }}
-    .pill {{
+    }
+    .row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+    .pill {
       display: inline-block;
       padding: 6px 10px;
       border: 1px solid #334155;
       border-radius: 999px;
       color: #94a3b8;
       font-size: 12px;
-    }}
-    pre {{
+    }
+    pre {
       margin-top: 14px;
       background: #0b1220;
       padding: 14px;
@@ -117,21 +117,21 @@ def root():
       border-radius: 12px;
       white-space: pre-wrap;
       word-break: break-word;
-    }}
-    a {{ color: #38bdf8; text-decoration: none; }}
-    code {{
+    }
+    a { color: #38bdf8; text-decoration: none; }
+    code {
       background: #0b1220;
       padding: 2px 6px;
       border-radius: 6px;
       border: 1px solid #334155;
-    }}
-    .muted {{ color: #94a3b8; }}
+    }
+    .muted { color: #94a3b8; }
   </style>
 </head>
 <body>
 
   <h1>Hopetensor Reasoning Node</h1>
-  <p class="sub">Live demo running on <span class="pill">{APP_NAME} v{APP_VERSION}</span></p>
+  <p class="sub">Live demo – lightweight reasoning API node.</p>
 
   <div class="card">
     <div class="row">
@@ -165,63 +165,65 @@ def root():
     <p class="muted">
       <a href="/docs">API Docs</a> · <a href="/health">Health</a> · <a href="/version">Version</a>
     </p>
+
     <pre class="muted" style="margin-top:10px;">curl -X POST https://hopetensor.onrender.com/reason \\
   -H "Content-Type: application/json" \\
-  -d '{{"text":"generate a response","trace":true}}'</pre>
+  -d '{"text":"generate a response","trace":true}'</pre>
   </div>
 
 <script>
 let last = null;
 let showRaw = true;
 
-function setPrompt(t) {{
+function setPrompt(t) {
   document.getElementById("input").value = t;
-}}
+}
 
-function toggleRaw() {{
+function toggleRaw() {
   showRaw = !showRaw;
   renderOutput();
-}}
+}
 
-function renderOutput() {{
+function renderOutput() {
   const out = document.getElementById("output");
-  if (!last) {{
+  if (!last) {
     out.textContent = "Waiting...";
     return;
-  }}
+  }
   out.textContent = showRaw ? JSON.stringify(last, null, 2) : (last.result || "");
-}}
+}
 
-async function run() {{
+async function run() {
   const status = document.getElementById("status");
   status.textContent = "running...";
-  try {{
+  try {
     const text = document.getElementById("input").value;
-    const res = await fetch("/reason", {{
+    const res = await fetch("/reason", {
       method: "POST",
-      headers: {{"Content-Type":"application/json"}},
-      body: JSON.stringify({{ text: text, trace: true }})
-    }});
+      headers: {"Content-Type":"application/json"},
+      body: JSON.stringify({ text: text, trace: true })
+    });
 
     const data = await res.json();
     last = data;
 
-    document.getElementById("enginePill").textContent = "engine: " + (data.meta?.engine ?? "-");
+    document.getElementById("enginePill").textContent = "engine: " + ((data.meta && data.meta.engine) ? data.meta.engine : "-");
     document.getElementById("latencyPill").textContent = "took_ms: " + (data.took_ms ?? "-");
     document.getElementById("reqPill").textContent = "request_id: " + (data.request_id ?? "-");
 
     renderOutput();
     status.textContent = "ok";
-  }} catch (e) {{
+  } catch (e) {
     status.textContent = "error";
     document.getElementById("output").textContent = String(e);
-  }}
-}}
+  }
+}
 </script>
 
 </body>
 </html>
 """
+    return html
 
 
 @app.get("/health")
@@ -254,4 +256,3 @@ def reason(req: ReasonRequest):
         resp.meta.update({"pid": os.getpid(), "ts": int(time.time())})
 
     return resp
-```
