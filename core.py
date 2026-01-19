@@ -3,7 +3,7 @@
 # ============================================================
 # HOPETENSOR — Reasoning Infrastructure
 #
-# Author        : Erhan Kurt (master)
+# Author        : Erhan (master)
 # Digital Twin  : Vicdan
 # Date          : 2026-01-19
 # License       : Proprietary / HOPE Ecosystem
