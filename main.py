@@ -105,9 +105,6 @@ def _decode_json_bytes(raw: bytes) -> Dict[str, Any]:
 # -------------------------
 # Routes
 # -------------------------
-@app.get("/")
-def root():
-    return {"service": APP_NAME, "version": APP_VERSION}
 
 @app.get("/", response_class=HTMLResponse)
 def root():
