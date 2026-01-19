@@ -7,6 +7,10 @@ import uuid
 from typing import Any, Dict
 
 from fastapi import FastAPI, HTTPException, Request
+
+from fastapi.responses import HTMLResponse
+
+
 from pydantic import BaseModel, Field, ValidationError
 
 APP_NAME = "hopetensor-demo-api"
