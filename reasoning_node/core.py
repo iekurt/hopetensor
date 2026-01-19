@@ -1,26 +1,39 @@
+import hashlib
 import re
-from typing import List, Tuple
+from typing import List
 
 
 STOP = {
     "the","a","an","and","or","but","if","then","else","to","of","in","on","for","with","at","by","from","as",
     "is","are","was","were","be","been","being","it","this","that","these","those","i","you","we","they","he","she",
     "my","your","our","their","his","her","them","us","me","do","does","did","can","could","should","would","will",
-    "about","into","over","under","up","down","out","very","more","most","less","least"
+    "about","into","over","under","up","down","out","very","more","most","less","least","please","make","create",
+    "write","generate","give","provide","response","output","sentences","sentence"
 }
 
 
-def _sentences(text: str) -> List[str]:
-    # keep it robust for plain ASCII
-    parts = re.split(r"(?<=[.!?])\s+", text.strip())
-    return [p.strip() for p in parts if p.strip()]
+def _seed(text: str) -> int:
+    h = hashlib.md5(text.encode("utf-8", errors="ignore")).hexdigest()
+    return int(h[:8], 16)
+
+
+def _pick(text: str, options: List[str]) -> str:
+    if not options:
+        return ""
+    s = _seed(text)
+    return options[s % len(options)]
 
 
 def _words(text: str) -> List[str]:
     return re.findall(r"[a-zA-Z0-9]+", text.lower())
 
 
-def _keywords(text: str, k: int = 8) -> List[str]:
+def _sentences(text: str) -> List[str]:
+    parts = re.split(r"(?<=[.!?])\s+", text.strip())
+    return [p.strip() for p in parts if p.strip()]
+
+
+def _keywords(text: str, k: int = 10) -> List[str]:
     w = [x for x in _words(text) if x not in STOP and len(x) >= 3]
     freq = {}
     for x in w:
@@ -29,108 +42,127 @@ def _keywords(text: str, k: int = 8) -> List[str]:
     return [x for x, _ in ranked[:k]]
 
 
-def _score_sentence(s: str, keys: List[str]) -> int:
-    sw = set(_words(s))
-    return sum(2 for k in keys if k in sw) + min(len(sw) // 8, 3)
-
-
-def _pick_top_sentences(text: str, n: int = 2) -> List[str]:
-    sents = _sentences(text)
-    if not sents:
-        return []
-    keys = _keywords(text, 10)
-    scored = [(i, _score_sentence(s, keys), s) for i, s in enumerate(sents)]
-    scored.sort(key=lambda t: (-t[1], t[0]))
-    chosen = sorted(scored[: min(n, len(scored))], key=lambda t: t[0])
-    return [s for _, _, s in chosen]
-
-
-def _extract_topic(user_text: str) -> str:
-    # try to detect "about X" / "of X" / "on X"
-    m = re.search(r"\b(about|of|on)\b\s+(.+)$", user_text.strip(), re.IGNORECASE)
+def _extract_payload(text: str) -> str:
+    """
+    Supports:
+      summarize: <payload>
+      bullets: <payload>
+      explain: <payload>
+      2sent: <payload>
+    If no payload found, payload = full text.
+    """
+    m = re.match(r"^\s*(summarize|summary|bullets|bullet|list|explain|2sent|two)\s*:\s*(.+)\s*$", text, re.I)
     if m:
-        topic = m.group(2).strip()
-        topic = re.sub(r"\s+", " ", topic)
-        return topic[:120]
-    # fallback to keywords
-    keys = _keywords(user_text, 5)
-    return " / ".join(keys) if keys else "the input"
+        return m.group(2).strip()
+    return text.strip()
 
 
 def _intent(text: str) -> str:
-    t = text.lower()
-    # allow both "command-only" and "command+content"
-    if "two sentence" in t or "2 sentence" in t:
+    t = text.lower().strip()
+    if re.match(r"^\s*(summarize|summary)\s*:", t):
+        return "summarize"
+    if re.match(r"^\s*(bullets|bullet|list)\s*:", t):
+        return "bullets"
+    if re.match(r"^\s*(explain)\s*:", t):
+        return "explain"
+    if re.match(r"^\s*(2sent|two)\s*:", t):
         return "two_sentence"
+
+    # fallback heuristics
     if "summarize" in t or "summary" in t:
         return "summarize"
-    if ("bullet" in t) or ("bullet points" in t) or ("list" in t and "bullet" in t):
+    if "bullet" in t or ("list" in t and "point" in t):
         return "bullets"
-    if "explain" in t and ("child" in t or "simple" in t):
-        return "explain_simple"
+    if "two sentence" in t or "2 sentence" in t:
+        return "two_sentence"
     if "explain" in t:
         return "explain"
     return "generic"
 
 
+def _top_sentences(payload: str, n: int = 2) -> List[str]:
+    sents = _sentences(payload)
+    if not sents:
+        return []
+    keys = _keywords(payload, 12)
+    scored = []
+    for i, s in enumerate(sents):
+        sw = set(_words(s))
+        score = sum(2 for k in keys if k in sw) + min(len(sw) // 8, 3)
+        scored.append((score, i, s))
+    scored.sort(key=lambda x: (-x[0], x[1]))
+    chosen = sorted(scored[: min(n, len(scored))], key=lambda x: x[1])
+    return [s for _, _, s in chosen]
+
+
 def think(text: str) -> str:
     it = _intent(text)
+    payload = _extract_payload(text)
 
-    # If the user only sends an instruction, we still produce content based on topic keywords.
-    topic = _extract_topic(text)
+    keys = _keywords(payload, 10)
+    topic = ", ".join(keys[:4]) if keys else "the input"
 
     if it == "summarize":
-        # Summarize the provided content: if the message is mostly an instruction, summarize keywords instead.
-        tops = _pick_top_sentences(text, 2)
+        tops = _top_sentences(payload, 2)
         if tops:
-            summary = " ".join(tops)
-            keys = _keywords(text, 6)
-            key_line = f"Key points: {', '.join(keys)}." if keys else ""
-            return (summary + (" " + key_line if key_line else "")).strip()
-        keys = _keywords(text, 8)
-        if not keys:
-            return "Not enough content to summarize."
-        return f"Summary: This is mainly about {', '.join(keys[:6])}."
-
-    if it == "two_sentence":
-        keys = _keywords(text, 6)
-        kline = ", ".join(keys) if keys else topic
-        return (
-            f"This request is about {topic} and focuses on {kline}."
-            f" A good response should be concise, specific, and directly address the intent."
-        )
+            opener = _pick(payload, [
+                "Summary:",
+                "In short:",
+                "Quick summary:",
+                "Key takeaway:"
+            ])
+            kline = ""
+            if keys:
+                kline = " Key terms: " + ", ".join(keys[:6]) + "."
+            return f"{opener} " + " ".join(tops) + kline
+        return "Summary: Not enough content to summarize."
 
     if it == "bullets":
-        keys = _keywords(text, 8)
-        if not keys:
-            keys = [topic]
-        bullets = keys[:5]
-        return "\n".join([f"- {b}" for b in bullets])
-
-    if it == "explain_simple":
-        keys = _keywords(text, 5)
-        core = keys[0] if keys else topic
-        return (
-            f"Think of {core} like a simple tool that helps you do something easier."
-            f" It takes an input, follows a few rules, and gives you an output you can use."
-        )
+        bullets = keys[:6] if keys else _keywords(text, 6)
+        if not bullets:
+            bullets = ["point 1", "point 2", "point 3"]
+        prefix = _pick(payload, ["- ", "• ", "* "])
+        return "\n".join([prefix + b for b in bullets])
 
     if it == "explain":
-        keys = _keywords(text, 7)
-        if not keys:
-            return f"Explanation: {topic} means taking the input, understanding the goal, and producing the most useful output."
+        style = _pick(payload, ["plain", "practical", "structured"])
+        if style == "plain":
+            return (
+                f"This is mainly about {topic}. "
+                f"It means taking the core idea, removing noise, and explaining it clearly with examples."
+            )
+        if style == "practical":
+            return (
+                f"Practical explanation for {topic}: "
+                f"identify the goal, list constraints, choose a method, and produce a usable result."
+            )
         return (
-            f"Explanation: This relates to {topic}. "
-            f"The key ideas here are: {', '.join(keys[:5])}. "
-            f"In practice, you clarify the goal, pick the right method, then generate the result."
+            f"Explanation ({topic}): "
+            f"(1) Goal, (2) Inputs, (3) Method, (4) Output, (5) Checks/risks."
         )
 
-    # generic
-    keys = _keywords(text, 6)
-    if keys:
-        return (
-            f"I interpreted the request as being about {topic}. "
-            f"The most relevant concepts are: {', '.join(keys[:5])}. "
-            f"Provide the missing specifics (constraints, examples, desired format) to get a sharper answer."
-        )
-    return "I received the input, but it lacks concrete details. Add constraints and an example to get a meaningful output."
+    if it == "two_sentence":
+        a = _pick(payload, [
+            f"This request centers on {topic} and needs a concise answer.",
+            f"The main theme here is {topic}, and the output should be short and clear.",
+            f"You are asking about {topic}; a tight response is best."
+        ])
+        b = _pick(payload, [
+            "To improve quality, add constraints, examples, and the exact desired format.",
+            "If you provide context and constraints, the answer becomes dramatically sharper.",
+            "Give a bit more context and I can produce a more specific, actionable response."
+        ])
+        return a + " " + b
+
+    # generic: make output depend on payload strongly
+    frame = _pick(payload, [
+        f"I detect the topic as {topic}.",
+        f"This looks like a request about {topic}.",
+        f"The key concepts I see are {topic}."
+    ])
+    action = _pick(payload, [
+        "Tell me the target audience and constraints to optimize the output.",
+        "Add one example input/output pair and I will match that style.",
+        "Specify length, tone, and format (bullets, JSON, paragraph) for best results."
+    ])
+    return frame + " " + action
