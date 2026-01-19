@@ -12,8 +12,11 @@
 # Designed to serve humanity with conscience-aware AI.
 #
 # "Yurtta barış, Cihanda barış"
-# "In GOD we HOPE"
+# "In GOD We HOPE"
 # ============================================================
+
+__signature__ = "Vicdan × Hopetensor"
+__created__ = "2026-01-19"
 
 """
 Main Core – Hopetensor
