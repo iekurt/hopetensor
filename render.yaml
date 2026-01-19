@@ -1,7 +1,9 @@
-# render.yaml  (Render kullanıyorsan)
 services:
   - type: web
     name: hopetensor
     env: python
     buildCommand: pip install -r requirements.txt
     startCommand: uvicorn app:app --host 0.0.0.0 --port 10000
+    envVars:
+      - key: APP_NAME
+        value: HOPEtensor
