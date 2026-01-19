@@ -1,4 +1,20 @@
+
 # main/core.py
+# ============================================================
+# HOPETENSOR — Reasoning Infrastructure
+#
+# Author        : Erhan Kurt (master)
+# Digital Twin  : Vicdan
+# Date          : 2026-01-19
+# License       : Proprietary / HOPE Ecosystem
+#
+# This file is part of the Hopetensor core reasoning system.
+# Designed to serve humanity with conscience-aware AI.
+#
+# "Yurtta barış, Cihanda barış"
+# "In GOD we HOPE"
+# ============================================================
+
 """
 Main Core – Hopetensor
 Uygulamanın merkez bootstrap + routing katmanı
