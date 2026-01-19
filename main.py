@@ -109,6 +109,78 @@ def _decode_json_bytes(raw: bytes) -> Dict[str, Any]:
 def root():
     return {"service": APP_NAME, "version": APP_VERSION}
 
+@app.get("/", response_class=HTMLResponse)
+def root():
+    return """
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Hopetensor Demo</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #0f172a;
+      color: #e5e7eb;
+      padding: 40px;
+    }
+    h1 { color: #38bdf8; }
+    textarea {
+      width: 100%;
+      height: 100px;
+      margin-top: 10px;
+      background: #020617;
+      color: #e5e7eb;
+      border: 1px solid #334155;
+      padding: 10px;
+    }
+    button {
+      margin-top: 10px;
+      padding: 10px 20px;
+      background: #38bdf8;
+      border: none;
+      cursor: pointer;
+      font-weight: bold;
+    }
+    pre {
+      margin-top: 20px;
+      background: #020617;
+      padding: 15px;
+      border: 1px solid #334155;
+      white-space: pre-wrap;
+    }
+  </style>
+</head>
+<body>
+
+<h1>Hopetensor Reasoning Node</h1>
+<p>Live demo – lightweight reasoning API node.</p>
+
+<textarea id="input">generate a two sentence response</textarea>
+<br>
+<button onclick="run()">Run Reasoning</button>
+
+<pre id="output">Waiting for input...</pre>
+
+<script>
+async function run() {
+  const text = document.getElementById("input").value;
+  const res = await fetch("/reason", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ text: text })
+  });
+  const data = await res.json();
+  document.getElementById("output").textContent =
+    JSON.stringify(data, null, 2);
+}
+</script>
+
+</body>
+</html>
+"""
+
+
 
 @app.get("/health")
 def health():
