@@ -109,3 +109,7 @@ def reason(req: ReasonRequest):
         )
 
     return resp
+
+
+print("REQ_TEXT_RAW:", req.text)
+
