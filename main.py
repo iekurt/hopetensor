@@ -153,11 +153,27 @@ def root():
 <h1>Hopetensor Reasoning Node</h1>
 <p>Live demo – lightweight reasoning API node.</p>
 
+<p style="max-width:700px;line-height:1.6">
+Hopetensor is a lightweight reasoning node.
+It accepts plain text input and returns a structured reasoning response.
+This page is a live demo of the node running in production.
+</p>
+
+<div style="margin-bottom:10px">
+  <button onclick="setPrompt('generate a two sentence response')">2 sentences</button>
+  <button onclick="setPrompt('summarize this idea in one paragraph')">Summarize</button>
+  <button onclick="setPrompt('explain this concept to a child')">Explain simply</button>
+</div>
+
+
 <textarea id="input">generate a two sentence response</textarea>
 <br>
 <button onclick="run()">Run Reasoning</button>
 
 <pre id="output">Waiting for input...</pre>
+
+<div id="meta" style="margin-top:10px;color:#94a3b8"></div>
+
 
 <script>
 async function run() {
@@ -171,6 +187,11 @@ async function run() {
   document.getElementById("output").textContent =
     JSON.stringify(data, null, 2);
 }
+
+function setPrompt(t) {
+  document.getElementById("input").value = t;
+}
+
 </script>
 
 </body>
