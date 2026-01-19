@@ -1,47 +1,38 @@
-
-# main/core.py
 # ============================================================
-# HOPETENSOR — Reasoning Infrastructure
+# HOPEtensor — Reasoning Infrastructure
 #
 # Author        : Erhan (master)
 # Digital Twin  : Vicdan
 # Date          : 2026-01-19
 # License       : Proprietary / HOPE Ecosystem
 #
-# This file is part of the Hopetensor core reasoning system.
+# This file is part of the HOPEtensor core reasoning system.
 # Designed to serve humanity with conscience-aware AI.
 #
 # "Yurtta barış, Cihanda barış"
 # "In GOD We HOPE"
 # ============================================================
 
-__signature__ = "Vicdan × Hopetensor"
-__created__ = "2026-01-19"
-
-"""
-Main Core – Hopetensor
-Uygulamanın merkez bootstrap + routing katmanı
-"""
-
 from __future__ import annotations
+
 import time
 import uuid
 from typing import Dict, Any
 
-# reasoning engine (fallback dahil)
 from reasoning_node.core import reason as reasoning_reason
+from main.runtime_signature import runtime_signature
 
 
-APP_NAME = "hopetensor"
+APP_NAME = "HOPEtensor"
 APP_VERSION = "0.1.0"
 
 
 def health() -> Dict[str, Any]:
+    sig = runtime_signature(APP_VERSION)
     return {
         "ok": True,
-        "app": APP_NAME,
-        "version": APP_VERSION,
         "ts": int(time.time()),
+        **sig,
     }
 
 
@@ -71,27 +62,32 @@ def process(payload: Dict[str, Any]) -> Dict[str, Any]:
         "ok": True,
         "result": result,
         "took_ms": took_ms,
+        "meta": {
+            **runtime_signature(APP_VERSION),
+        },
     }
 
 
-# FastAPI entegrasyonu için opsiyonel hook
 def fastapi_routes(app):
     from fastapi import Body
+    from fastapi.responses import JSONResponse
 
-    @app.get("/health")
+    @app.get("/health", response_class=JSONResponse)
     def _health():
         return health()
 
-    @app.post("/reason")
+    @app.get("/signature", response_class=JSONResponse)
+    def _signature():
+        return runtime_signature(APP_VERSION)
+
+    @app.post("/reason", response_class=JSONResponse)
     def _reason(payload: Dict[str, Any] = Body(...)):
         return process(payload)
 
 
-# CLI / local test
 if __name__ == "__main__":
     sample = {
-        "text": "Merhaba hopetensor, 2 cümlelik bir çıktı üret",
+        "text": "Merhaba HOPEtensor, 2 cümlelik bir çıktı üret",
         "trace": True,
     }
     print(process(sample))
-
