@@ -118,7 +118,7 @@ INDEX_HTML = f"""<!doctype html>
   <meta name="motto-2" content="In GOD We HOPE" />
 
   <title>HOPEtensor — Reasoning Node</title>
-  <link rel="stylesheet" href="/static/style.css">
+ <link rel="stylesheet" href="/static/style.css?v=20260119">
 </head>
 
 <body>
@@ -158,7 +158,7 @@ INDEX_HTML = f"""<!doctype html>
     </div>
   </div>
 
-  <script src="/static/app.js"></script>
+  <script src="/static/app.js?v=20260119"></script>
 </body>
 </html>
 """
