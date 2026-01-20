@@ -1,12 +1,12 @@
 # ============================================================
-# HOPEtensor — Minimal UI (NO JSON, NO EXTRA LIBS)
+# HOPEtensor — Minimal UI (Plain Text, No JSON on Screen)
 #
 # Author       : Erhan (master)
 # Digital Twin : Vicdan
 # ============================================================
 
-from fastapi import FastAPI, Request
-from fastapi.responses import HTMLResponse, PlainTextResponse
+from fastapi import FastAPI
+from fastapi.responses import HTMLResponse
 
 from main.core import fastapi_routes, APP_NAME, APP_VERSION
 
@@ -14,12 +14,13 @@ app = FastAPI(title=APP_NAME, version=APP_VERSION)
 fastapi_routes(app)
 
 
-INDEX_HTML = """
+INDEX_HTML = '''
 <!doctype html>
 <html lang="en">
 <head>
   <meta charset="utf-8">
   <title>HOPEtensor</title>
+
   <style>
     body {
       margin: 0;
@@ -64,6 +65,7 @@ INDEX_HTML = """
     }
   </style>
 </head>
+
 <body>
 
 <h2>HOPEtensor</h2>
@@ -71,15 +73,51 @@ INDEX_HTML = """
 <textarea id="text" placeholder="Write your text here..."></textarea>
 
 <div class="btns">
-  <button onclick="run('short')">Shorten & Explain</button>
-  <button onclick="run('five')">5-Point Summary</button>
+  <button onclick="runShort()">Shorten & Explain</button>
+  <button onclick="runFive()">5-Point Summary</button>
 </div>
 
 <pre id="out">ready</pre>
 
 <script>
-async function run(mode) {
-  const text = document.getElementById("text").value || "";
+async function callReason(prompt) {
+  const r = await fetch("/reason", {
+    method: "POST",
+    headers: { "Content-Type": "application/json; charset=utf-8" },
+    body: JSON.stringify({
+      text: prompt,
+      trace: false
+    })
+  });
+  return await r.json();
+}
 
-  // prompt disiplinini UI tarafında veriyoruz
-  let instruction
+async function runShort() {
+  const text = document.getElementById("text").value || "";
+  const instruction =
+    "Shorten and explain the following text in simple, clear language. " +
+    "Plain text only.\\n\\n";
+  const data = await callReason(instruction + text);
+  document.getElementById("out").innerText =
+    data.result || data.text || "No meaningful output.";
+}
+
+async function runFive() {
+  const text = document.getElementById("text").value || "";
+  const instruction =
+    "Summarize the following text into at most 5 bullet points. " +
+    "Each bullet must be one short sentence. Plain text only.\\n\\n";
+  const data = await callReason(instruction + text);
+  document.getElementById("out").innerText =
+    data.result || data.text || "No meaningful output.";
+}
+</script>
+
+</body>
+</html>
+'''
+
+
+@app.get("/", response_class=HTMLResponse)
+def index():
+    return HTMLResponse(INDEX_HTML)
