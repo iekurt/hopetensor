@@ -1,13 +1,8 @@
 # ============================================================
-# HOPEtensor — Core Routes (FORMAT LOCKED /reason)
+# HOPEtensor — Core Routes (FORMAT LOCKED, PLAIN TEXT)
 #
 # Author        : Erhan (master)
 # Digital Twin  : Vicdan
-# Date          : 2026-01-21
-# License       : Proprietary / HOPE Ecosystem
-#
-# "Yurtta barış, Cihanda barış"
-# "In GOD We HOPE"
 # ============================================================
 
 from __future__ import annotations
@@ -17,7 +12,9 @@ import re
 import time
 import uuid
 from datetime import datetime
-from typing import Any, Dict, Optional
+from typing import Any, Dict
+
+from fastapi.responses import PlainTextResponse
 
 APP_NAME = "HOPEtensor"
 APP_VERSION = os.getenv("APP_VERSION", "0.1.0")
@@ -28,164 +25,185 @@ DEPLOY_STAMP = (
     or datetime.utcnow().isoformat() + "Z"
 )
 
+# ---------------- TEXT UTIL ----------------
 
-# -----------------------------
-# FORMAT LOCKS
-# -----------------------------
-
-def _clean_whitespace(text: str) -> str:
+def _clean_spaces(text: str) -> str:
     return re.sub(r"\s+", " ", (text or "").strip())
-
 
 def _split_sentences(text: str) -> list[str]:
     t = (text or "").strip()
     if not t:
         return []
-    # basic sentence split
-    parts = re.split(r"(?<=[.!?])\s+", t)
-    return [p.strip() for p in parts if p.strip()]
+    # Simple sentence splitter (good enough for TR/EN mixed)
+    parts = re.split(r"(?<=[.!?])\s+|\n+", t)
+    parts = [p.strip() for p in parts if p and p.strip()]
+    return parts
 
-
-def _enforce_short(text: str, max_chars: int = 600) -> str:
-    t = _clean_whitespace(text)
+def _strip_leading_instruction(text: str) -> str:
+    """
+    If the UI prepends instruction lines (Shorten/Explain...), remove them
+    so we summarize ONLY the user's real content.
+    We do this by cutting everything before a marker like "Text:" or "TEXT:".
+    If no marker, we just keep as-is.
+    """
+    t = (text or "").strip()
     if not t:
-        return "—"
-    if len(t) > max_chars:
-        t = t[:max_chars].rstrip() + "…"
+        return t
+
+    # common markers
+    markers = ["TEXT:", "Text:", "Metin:", "METİN:", "CONTENT:", "Content:"]
+    for m in markers:
+        idx = t.find(m)
+        if idx != -1:
+            return t[idx + len(m):].strip()
+
+    # also handle "...\n\n" instruction blocks
+    # if there's a large instruction header, keep the last big block
+    chunks = re.split(r"\n\s*\n", t)
+    if len(chunks) >= 2:
+        # assume last chunk is the actual content
+        return chunks[-1].strip()
+
     return t
 
+# ---------------- SUMMARIZERS (LLM-FREE, DETERMINISTIC) ----------------
 
-def _enforce_five_points(text: str) -> str:
+def _shorten_text(user_text: str, max_sentences: int = 3, max_chars: int = 600) -> str:
     """
-    Always returns exactly 5 numbered points.
-    If fewer points exist, fills with '—'.
-    If more, truncates to 5.
+    Real shortening:
+    - take first N meaningful sentences
+    - clamp length
     """
-    if not (text or "").strip():
-        return "1. —\n2. —\n3. —\n4. —\n5. —"
+    t = _clean_spaces(user_text)
+    if not t:
+        return "—"
 
-    # Try to extract bullet-ish lines first
-    raw_lines = re.split(r"\n+|•|\t| - | — |- ", text)
-    lines = [l.strip() for l in raw_lines if l.strip()]
+    sents = _split_sentences(t)
+    if not sents:
+        out = t
+    else:
+        out = " ".join(sents[:max_sentences]).strip()
 
-    # If not enough, use sentences
-    if len(lines) < 5:
-        lines = _split_sentences(text)
+    out = _clean_spaces(out)
+    if len(out) > max_chars:
+        out = out[:max_chars].rstrip() + "…"
+    return out if out else "—"
 
-    # If still not enough, fall back to chunks
-    if len(lines) < 5:
-        t = _clean_whitespace(text)
-        if t:
-            # chunk roughly into 5 parts
-            chunk_len = max(1, len(t) // 5)
-            lines = [t[i:i+chunk_len].strip() for i in range(0, len(t), chunk_len)]
-            lines = [l for l in lines if l]
-
-    lines = lines[:5]
-    while len(lines) < 5:
-        lines.append("—")
-
-    return "\n".join([f"{i+1}. {lines[i]}" for i in range(5)])
-
-
-# -----------------------------
-# "LLM" GENERATION (stub)
-# -----------------------------
-
-def llm_generate(prompt: str) -> str:
+def _five_points(user_text: str) -> list[str]:
     """
-    Replace this function with your real LLM call.
-    For now it returns a sensible, deterministic transformation
-    so results are NOT "random nonsense".
+    Real 5 points:
+    - prefer sentences
+    - if not enough, chunk text
+    - always return 5 strings
     """
-    p = (prompt or "").strip()
-    if not p:
-        return ""
+    t = _clean_spaces(user_text)
+    if not t:
+        return ["—", "—", "—", "—", "—"]
 
-    # If user pasted big text, we keep it safe and concise by default.
-    # This is intentionally conservative.
-    return p
+    sents = _split_sentences(t)
+    points: list[str] = []
 
+    # take up to 5 short sentences as points
+    for s in sents:
+        s2 = _clean_spaces(s)
+        if not s2:
+            continue
+        # keep each point short-ish
+        if len(s2) > 220:
+            s2 = s2[:220].rstrip() + "…"
+        points.append(s2)
+        if len(points) == 5:
+            break
 
-# -----------------------------
-# ROUTES
-# -----------------------------
+    # if still not enough, chunk remaining text
+    if len(points) < 5:
+        # chunk the whole text into pieces
+        chunk_len = max(60, len(t) // 5)
+        chunks = [t[i:i+chunk_len].strip() for i in range(0, len(t), chunk_len)]
+        for c in chunks:
+            c2 = _clean_spaces(c)
+            if c2 and c2 not in points:
+                points.append(c2 if len(c2) <= 220 else c2[:220].rstrip() + "…")
+            if len(points) == 5:
+                break
+
+    while len(points) < 5:
+        points.append("—")
+
+    return points[:5]
+
+# ---------------- OUTPUT FORMAT (YOUR REQUEST: header + immediate result) ----------------
+
+def _format_short(text: str) -> str:
+    # “laf olsun ama hemen akabinde sonuç gelsin”
+    return f"Shortened:\n{text}"
+
+def _format_five(points: list[str]) -> str:
+    lines = ["5-Point Summary:"]
+    for i, p in enumerate(points, 1):
+        lines.append(f"{i}. {p}")
+    return "\n".join(lines)
+
+# ---------------- ROUTES ----------------
 
 def fastapi_routes(app) -> None:
-    """
-    Attach HOPEtensor routes to any FastAPI app.
-    """
 
-    @app.get("/health")
-    def health() -> Dict[str, Any]:
-        return {
-            "ok": True,
-            "service": APP_NAME,
-            "version": APP_VERSION,
-            "deploy": DEPLOY_STAMP,
-            "ts": int(time.time()),
-        }
+    @app.get("/health", response_class=PlainTextResponse)
+    def health() -> str:
+        return (
+            "HOPEtensor — HEALTH OK\n"
+            f"Version : {APP_VERSION}\n"
+            f"Deploy  : {DEPLOY_STAMP}\n"
+            f"Time    : {int(time.time())}\n"
+        )
 
-    @app.get("/signature")
-    def signature() -> Dict[str, Any]:
-        return {
-            "name": APP_NAME,
-            "version": APP_VERSION,
-            "deploy": DEPLOY_STAMP,
-            "author": "Erhan (master)",
-            "digital_twin": "Vicdan",
-            "motto_1": "Yurtta barış, Cihanda barış",
-            "motto_2": "In GOD We HOPE",
-            "license": "Proprietary / HOPE Ecosystem",
-        }
+    @app.get("/signature", response_class=PlainTextResponse)
+    def signature() -> str:
+        return (
+            "HOPEtensor — Reasoning Infrastructure\n"
+            "\n"
+            "Author        : Erhan (master)\n"
+            "Digital Twin  : Vicdan\n"
+            f"Version       : {APP_VERSION}\n"
+            f"Deploy        : {DEPLOY_STAMP}\n"
+            "License       : Proprietary / HOPE Ecosystem\n"
+            "\n"
+            "\"Yurtta barış, Cihanda barış\"\n"
+            "\"In GOD We HOPE\"\n"
+        )
 
     @app.post("/reason")
     async def reason(payload: Dict[str, Any]) -> Dict[str, Any]:
-        """
-        FORMAT-LOCKED endpoint.
-
-        Input JSON:
-          {
-            "text": "...",
-            "mode": "short" | "five",
-            "trace": true|false
-          }
-
-        Output JSON:
-          { "ok": true, "result": "<plain text>", ...optional meta }
-        """
         t0 = time.time()
         request_id = str(uuid.uuid4())
 
-        text = payload.get("text", "")
+        raw_in = payload.get("text", "") or ""
         mode = (payload.get("mode") or "short").strip().lower()
         trace = bool(payload.get("trace", False))
 
-        # 1) generate raw output (LLM or stub)
-        raw = llm_generate(text)
+        # summarize only the user's actual content, not the UI instruction header
+        user_text = _strip_leading_instruction(raw_in)
 
-        # 2) apply FORMAT LOCK
         if mode == "five":
-            result = _enforce_five_points(raw)
+            pts = _five_points(user_text)
+            result = _format_five(pts)
         else:
-            # default to short
-            result = _enforce_short(raw, max_chars=600)
-
-        took_ms = int((time.time() - t0) * 1000)
+            short = _shorten_text(user_text, max_sentences=3, max_chars=600)
+            result = _format_short(short)
 
         resp: Dict[str, Any] = {
             "ok": True,
             "request_id": request_id,
             "result": result,
-            "took_ms": took_ms,
+            "took_ms": int((time.time() - t0) * 1000),
         }
 
         if trace:
             resp["meta"] = {
                 "mode": mode,
-                "chars_in": len(text or ""),
-                "chars_out": len(result or ""),
-                "engine": "stub_llm_generate",
+                "chars_in": len(raw_in),
+                "chars_used": len(user_text),
+                "chars_out": len(result),
                 "deploy": DEPLOY_STAMP,
             }
 
