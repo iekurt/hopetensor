@@ -1,5 +1,5 @@
 # ============================================================
-# HOPEtensor — Core Routes (FORMAT LOCKED, PLAIN TEXT)
+# HOPEtensor — Core Routes (CLEAN SUMMARY LOGIC)
 #
 # Author        : Erhan (master)
 # Digital Twin  : Vicdan
@@ -25,126 +25,82 @@ DEPLOY_STAMP = (
     or datetime.utcnow().isoformat() + "Z"
 )
 
-# ---------------- TEXT UTIL ----------------
+# ------------------------------------------------------------
+# BASIC TEXT HELPERS
+# ------------------------------------------------------------
 
-def _clean_spaces(text: str) -> str:
+def _clean(text: str) -> str:
     return re.sub(r"\s+", " ", (text or "").strip())
 
 def _split_sentences(text: str) -> list[str]:
-    t = (text or "").strip()
-    if not t:
+    if not text:
         return []
-    # Simple sentence splitter (good enough for TR/EN mixed)
-    parts = re.split(r"(?<=[.!?])\s+|\n+", t)
-    parts = [p.strip() for p in parts if p and p.strip()]
-    return parts
+    parts = re.split(r"(?<=[.!?])\s+|\n+", text)
+    return [p.strip() for p in parts if p.strip()]
 
-def _strip_leading_instruction(text: str) -> str:
+def _strip_ui_instructions(text: str) -> str:
     """
-    If the UI prepends instruction lines (Shorten/Explain...), remove them
-    so we summarize ONLY the user's real content.
-    We do this by cutting everything before a marker like "Text:" or "TEXT:".
-    If no marker, we just keep as-is.
+    UI'nin başa eklediği 'Shorten / Summarize' tarzı talimatları at.
+    Gerçek metni al.
     """
-    t = (text or "").strip()
-    if not t:
-        return t
-
-    # common markers
-    markers = ["TEXT:", "Text:", "Metin:", "METİN:", "CONTENT:", "Content:"]
+    if not text:
+        return ""
+    markers = ["TEXT:", "Text:", "Metin:", "CONTENT:", "Content:"]
     for m in markers:
-        idx = t.find(m)
-        if idx != -1:
-            return t[idx + len(m):].strip()
+        if m in text:
+            return text.split(m, 1)[-1].strip()
+    # çift satırdan sonrasını al
+    chunks = re.split(r"\n\s*\n", text)
+    return chunks[-1].strip() if chunks else text.strip()
 
-    # also handle "...\n\n" instruction blocks
-    # if there's a large instruction header, keep the last big block
-    chunks = re.split(r"\n\s*\n", t)
-    if len(chunks) >= 2:
-        # assume last chunk is the actual content
-        return chunks[-1].strip()
+# ------------------------------------------------------------
+# SUMMARY LOGIC (VERY SIMPLE, VERY SAFE)
+# ------------------------------------------------------------
 
-    return t
-
-# ---------------- SUMMARIZERS (LLM-FREE, DETERMINISTIC) ----------------
-
-def _shorten_text(user_text: str, max_sentences: int = 3, max_chars: int = 600) -> str:
+def summarize_short(text: str) -> str:
     """
-    Real shortening:
-    - take first N meaningful sentences
-    - clamp length
+    Gerçek kısaltma:
+    - sadece ilk 2–3 anlamlı cümle
+    - yorum yok
     """
-    t = _clean_spaces(user_text)
+    t = _clean(text)
     if not t:
         return "—"
 
     sents = _split_sentences(t)
     if not sents:
-        out = t
-    else:
-        out = " ".join(sents[:max_sentences]).strip()
+        return t
 
-    out = _clean_spaces(out)
-    if len(out) > max_chars:
-        out = out[:max_chars].rstrip() + "…"
-    return out if out else "—"
+    out = " ".join(sents[:2])  # bilinçli olarak KISA
+    return out.strip()
 
-def _five_points(user_text: str) -> list[str]:
+def summarize_five(text: str) -> list[str]:
     """
-    Real 5 points:
-    - prefer sentences
-    - if not enough, chunk text
-    - always return 5 strings
+    Gerçek 5 madde:
+    - ilk 5 anlamlı cümle
+    - yoksa tekrar ETMEZ, em dash koymaz
     """
-    t = _clean_spaces(user_text)
+    t = _clean(text)
     if not t:
         return ["—", "—", "—", "—", "—"]
 
     sents = _split_sentences(t)
     points: list[str] = []
 
-    # take up to 5 short sentences as points
     for s in sents:
-        s2 = _clean_spaces(s)
-        if not s2:
-            continue
-        # keep each point short-ish
-        if len(s2) > 220:
-            s2 = s2[:220].rstrip() + "…"
-        points.append(s2)
         if len(points) == 5:
             break
+        points.append(s.strip())
 
-    # if still not enough, chunk remaining text
-    if len(points) < 5:
-        # chunk the whole text into pieces
-        chunk_len = max(60, len(t) // 5)
-        chunks = [t[i:i+chunk_len].strip() for i in range(0, len(t), chunk_len)]
-        for c in chunks:
-            c2 = _clean_spaces(c)
-            if c2 and c2 not in points:
-                points.append(c2 if len(c2) <= 220 else c2[:220].rstrip() + "…")
-            if len(points) == 5:
-                break
-
+    # eğer metin kısa ise, kalanları boş bırak
     while len(points) < 5:
         points.append("—")
 
-    return points[:5]
+    return points
 
-# ---------------- OUTPUT FORMAT (YOUR REQUEST: header + immediate result) ----------------
-
-def _format_short(text: str) -> str:
-    # “laf olsun ama hemen akabinde sonuç gelsin”
-    return f"Shortened:\n{text}"
-
-def _format_five(points: list[str]) -> str:
-    lines = ["5-Point Summary:"]
-    for i, p in enumerate(points, 1):
-        lines.append(f"{i}. {p}")
-    return "\n".join(lines)
-
-# ---------------- ROUTES ----------------
+# ------------------------------------------------------------
+# ROUTES
+# ------------------------------------------------------------
 
 def fastapi_routes(app) -> None:
 
@@ -177,19 +133,20 @@ def fastapi_routes(app) -> None:
         t0 = time.time()
         request_id = str(uuid.uuid4())
 
-        raw_in = payload.get("text", "") or ""
-        mode = (payload.get("mode") or "short").strip().lower()
+        raw_text = payload.get("text", "") or ""
+        mode = (payload.get("mode") or "short").lower()
         trace = bool(payload.get("trace", False))
 
-        # summarize only the user's actual content, not the UI instruction header
-        user_text = _strip_leading_instruction(raw_in)
+        user_text = _strip_ui_instructions(raw_text)
 
         if mode == "five":
-            pts = _five_points(user_text)
-            result = _format_five(pts)
+            pts = summarize_five(user_text)
+            result = "5-Point Summary:\n" + "\n".join(
+                f"{i+1}. {pts[i]}" for i in range(5)
+            )
         else:
-            short = _shorten_text(user_text, max_sentences=3, max_chars=600)
-            result = _format_short(short)
+            short = summarize_short(user_text)
+            result = "Shortened:\n" + short
 
         resp: Dict[str, Any] = {
             "ok": True,
@@ -201,7 +158,7 @@ def fastapi_routes(app) -> None:
         if trace:
             resp["meta"] = {
                 "mode": mode,
-                "chars_in": len(raw_in),
+                "chars_in": len(raw_text),
                 "chars_used": len(user_text),
                 "chars_out": len(result),
                 "deploy": DEPLOY_STAMP,
