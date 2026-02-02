@@ -1,0 +1,11 @@
+openapi: 3.1.0
+info:
+  title: HOPEtensor API
+  version: 0.1.0
+paths:
+  /v1/tasks:
+    post:
+      summary: Create task
+  /v1/tasks/{id}:
+    get:
+      summary: Get task
