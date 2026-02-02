@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://hopechain/schemas/verifier_verify_request.schema.json",
+  "title": "VerifierVerifyRequest",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "task_id": {
+      "type": "string"
+    },
+    "task_hash": {
+      "type": "string",
+      "pattern": "^0x[0-9a-fA-F]{16,}$"
+    },
+    "result_hash": {
+      "type": "string",
+      "pattern": "^0x[0-9a-fA-F]{16,}$"
+    },
+    "worker_output": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "trace": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "verification_profile": {
+      "type": "string",
+      "enum": [
+        "standard",
+        "high_trust_required",
+        "confidential"
+      ]
+    }
+  },
+  "required": [
+    "task_id",
+    "task_hash",
+    "result_hash",
+    "worker_output",
+    "verification_profile"
+  ]
+}

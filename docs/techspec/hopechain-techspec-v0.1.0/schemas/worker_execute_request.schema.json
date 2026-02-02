@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://hopechain/schemas/worker_execute_request.schema.json",
+  "title": "WorkerExecuteRequest",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "task_id": {
+      "type": "string"
+    },
+    "task": {
+      "$ref": "task.schema.json"
+    },
+    "nonce": {
+      "type": "string"
+    },
+    "chain_refs": {
+      "type": "object",
+      "additionalProperties": true
+    }
+  },
+  "required": [
+    "task_id",
+    "task",
+    "nonce"
+  ]
+}

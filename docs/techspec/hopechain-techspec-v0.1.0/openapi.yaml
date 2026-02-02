@@ -1,0 +1,374 @@
+openapi: 3.1.0
+info:
+  title: HOPE Chain Decentralized AI - Gateway & Node RPC
+  version: "0.1.0"
+  description: |
+    Technical API spec for HOPE Chain (Vicdan Network).
+    Includes Gateway endpoints and Node RPC (Worker/Verifier).
+servers:
+  - url: https://{host}/v1
+    variables:
+      host:
+        default: gateway.example.com
+tags:
+  - name: gateway
+    description: Gateway endpoints
+  - name: node
+    description: Node RPC endpoints
+paths:
+  /tasks:
+    post:
+      tags: [gateway]
+      summary: Create a task
+      operationId: createTask
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TaskCreateRequest"
+      responses:
+        "200":
+          description: Task created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TaskCreateResponse"
+        "400":
+          description: Bad request
+        "401":
+          description: Unauthorized
+  /tasks/{task_id}:
+    get:
+      tags: [gateway]
+      summary: Get task status/result
+      operationId: getTask
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: task_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Task status/result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TaskGetResponse"
+        "401":
+          description: Unauthorized
+        "404":
+          description: Not found
+  /tasks:stream:
+    post:
+      tags: [gateway]
+      summary: Create a task with streaming (SSE/WebSocket implemented by deployment)
+      operationId: createTaskStream
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TaskCreateRequest"
+      responses:
+        "200":
+          description: Stream started (implementation-dependent)
+  /health:
+    get:
+      tags: [node]
+      summary: Node health
+      operationId: nodeHealth
+      responses:
+        "200":
+          description: Node health response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NodeHealthResponse"
+  /execute:
+    post:
+      tags: [node]
+      summary: Worker execute task
+      operationId: workerExecute
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/WorkerExecuteRequest"
+      responses:
+        "200":
+          description: Worker execution response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorkerExecuteResponse"
+  /verify:
+    post:
+      tags: [node]
+      summary: Verifier verify result
+      operationId: verifierVerify
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/VerifierVerifyRequest"
+      responses:
+        "200":
+          description: Verifier response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VerifierVerifyResponse"
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    # --- Common primitives ---
+    DID:
+      type: string
+      description: Decentralized identifier string
+      examples: ["did:hope:node:wkr-istanbul-01"]
+    HashHex:
+      type: string
+      description: 0x-prefixed hex hash
+      pattern: "^0x[0-9a-fA-F]{16,}$"
+    Base64:
+      type: string
+      description: Base64-encoded string
+    PrivacyLevel:
+      type: string
+      enum: [public, standard, restricted, confidential]
+    TaskType:
+      type: string
+      enum: [chat, embed, classify, summarize, vision, agent]
+    ModelFamily:
+      type: string
+      enum: [llm_tr, llm_en, multimodal, small_fast]
+
+    ChatMessage:
+      type: object
+      additionalProperties: false
+      properties:
+        role:
+          type: string
+          enum: [system, user, assistant, tool]
+        content:
+          type: string
+      required: [role, content]
+
+    RequiredTrace:
+      type: object
+      additionalProperties: false
+      properties:
+        citations: { type: boolean, default: false }
+        tool_calls: { type: boolean, default: false }
+        safety_flags: { type: boolean, default: true }
+        reasoning_summary: { type: boolean, default: true }
+      required: [citations, tool_calls, safety_flags, reasoning_summary]
+
+    Constraints:
+      type: object
+      additionalProperties: false
+      properties:
+        max_tokens: { type: integer, minimum: 1, maximum: 65536, default: 512 }
+        temperature: { type: number, minimum: 0, maximum: 2, default: 0.4 }
+        top_p: { type: number, minimum: 0, maximum: 1, default: 1.0 }
+        latency_sla_ms: { type: integer, minimum: 1, default: 2500 }
+        max_cost_units: { type: integer, minimum: 1, default: 120 }
+        privacy_level: { $ref: "#/components/schemas/PrivacyLevel" }
+      required: [max_tokens, temperature, latency_sla_ms, max_cost_units, privacy_level]
+
+    TaskInputs:
+      type: object
+      description: Flexible inputs object (messages/files/context pointers)
+      additionalProperties: true
+
+    Task:
+      type: object
+      additionalProperties: false
+      properties:
+        task_type: { $ref: "#/components/schemas/TaskType" }
+        model_family: { $ref: "#/components/schemas/ModelFamily" }
+        model_hint: { type: string }
+        inputs: { $ref: "#/components/schemas/TaskInputs" }
+        constraints: { $ref: "#/components/schemas/Constraints" }
+        required_trace: { $ref: "#/components/schemas/RequiredTrace" }
+      required: [task_type, model_family, model_hint, inputs, constraints, required_trace]
+
+    Payment:
+      type: object
+      additionalProperties: false
+      properties:
+        mode: { type: string, enum: [prepaid, postpaid] }
+        budget_units: { type: integer, minimum: 1 }
+      required: [mode, budget_units]
+
+    TaskCreateRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        client_did: { $ref: "#/components/schemas/DID" }
+        task: { $ref: "#/components/schemas/Task" }
+        payment: { $ref: "#/components/schemas/Payment" }
+        idempotency_key: { type: string }
+      required: [client_did, task, payment, idempotency_key]
+
+    TaskCreateResponse:
+      type: object
+      additionalProperties: false
+      properties:
+        ok: { type: boolean }
+        task_id: { type: string }
+        status: { type: string, enum: [queued] }
+        estimated_start_ms: { type: integer }
+        trace_id: { type: string }
+      required: [ok, task_id, status]
+
+    TaskAssigned:
+      type: object
+      additionalProperties: false
+      properties:
+        worker_did: { $ref: "#/components/schemas/DID" }
+        verifier_dids:
+          type: array
+          items: { $ref: "#/components/schemas/DID" }
+      required: [worker_did, verifier_dids]
+
+    Output:
+      type: object
+      additionalProperties: true
+
+    Trace:
+      type: object
+      additionalProperties: true
+
+    Signatures:
+      type: object
+      additionalProperties: false
+      properties:
+        worker_sig: { $ref: "#/components/schemas/Base64" }
+        verifier_sig: { $ref: "#/components/schemas/Base64" }
+      required: [worker_sig]
+
+    Hashes:
+      type: object
+      additionalProperties: false
+      properties:
+        task_hash: { $ref: "#/components/schemas/HashHex" }
+        result_hash: { $ref: "#/components/schemas/HashHex" }
+      required: [result_hash]
+
+    Verification:
+      type: object
+      additionalProperties: false
+      properties:
+        score: { type: number, minimum: 0, maximum: 1 }
+        verdict: { type: string, enum: [accepted, rejected, retry] }
+      required: [score, verdict]
+
+    TaskResult:
+      type: object
+      additionalProperties: false
+      properties:
+        output: { $ref: "#/components/schemas/Output" }
+        meta:
+          type: object
+          additionalProperties: true
+        trace: { $ref: "#/components/schemas/Trace" }
+        signatures: { $ref: "#/components/schemas/Signatures" }
+        hashes: { $ref: "#/components/schemas/Hashes" }
+        verification: { $ref: "#/components/schemas/Verification" }
+      required: [output, meta, hashes, verification]
+
+    TaskGetResponse:
+      type: object
+      additionalProperties: false
+      properties:
+        ok: { type: boolean }
+        task_id: { type: string }
+        status: { type: string, enum: [queued, running, done, failed] }
+        assigned: { $ref: "#/components/schemas/TaskAssigned" }
+        result: { $ref: "#/components/schemas/TaskResult" }
+        error:
+          type: object
+          additionalProperties: true
+      required: [ok, task_id, status]
+
+    NodeHealthResponse:
+      type: object
+      additionalProperties: false
+      properties:
+        ok: { type: boolean }
+        node_did: { $ref: "#/components/schemas/DID" }
+        role: { type: string, enum: [worker, verifier] }
+        uptime_s: { type: integer, minimum: 0 }
+        capabilities:
+          type: object
+          additionalProperties: true
+        pricing:
+          type: object
+          additionalProperties: true
+      required: [ok, node_did, role]
+
+    WorkerExecuteRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        task_id: { type: string }
+        task: { $ref: "#/components/schemas/Task" }
+        nonce: { type: string }
+        chain_refs:
+          type: object
+          additionalProperties: true
+      required: [task_id, task, nonce]
+
+    WorkerExecuteResponse:
+      type: object
+      additionalProperties: false
+      properties:
+        ok: { type: boolean }
+        task_id: { type: string }
+        output: { $ref: "#/components/schemas/Output" }
+        trace: { $ref: "#/components/schemas/Trace" }
+        hashes: { $ref: "#/components/schemas/Hashes" }
+        worker_sig: { $ref: "#/components/schemas/Base64" }
+      required: [ok, task_id, output, hashes, worker_sig]
+
+    VerifierVerifyRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        task_id: { type: string }
+        task_hash: { $ref: "#/components/schemas/HashHex" }
+        result_hash: { $ref: "#/components/schemas/HashHex" }
+        worker_output: { $ref: "#/components/schemas/Output" }
+        trace: { $ref: "#/components/schemas/Trace" }
+        verification_profile: { type: string, enum: [standard, high_trust_required, confidential] }
+      required: [task_id, task_hash, result_hash, worker_output, verification_profile]
+
+    VerifierVerifyResponse:
+      type: object
+      additionalProperties: false
+      properties:
+        ok: { type: boolean }
+        task_id: { type: string }
+        score: { type: number, minimum: 0, maximum: 1 }
+        verdict: { type: string, enum: [accepted, rejected, retry] }
+        checks:
+          type: object
+          additionalProperties: true
+        verifier_sig: { $ref: "#/components/schemas/Base64" }
+      required: [ok, task_id, score, verdict, verifier_sig]

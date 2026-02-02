@@ -1,0 +1,45 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://hopechain/schemas/task_create_request.schema.json",
+  "title": "TaskCreateRequest",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "client_did": {
+      "type": "string"
+    },
+    "task": {
+      "$ref": "task.schema.json"
+    },
+    "payment": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "mode": {
+          "type": "string",
+          "enum": [
+            "prepaid",
+            "postpaid"
+          ]
+        },
+        "budget_units": {
+          "type": "integer",
+          "minimum": 1
+        }
+      },
+      "required": [
+        "mode",
+        "budget_units"
+      ]
+    },
+    "idempotency_key": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "client_did",
+    "task",
+    "payment",
+    "idempotency_key"
+  ]
+}

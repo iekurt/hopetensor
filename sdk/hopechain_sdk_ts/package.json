@@ -1,0 +1,17 @@
+{
+  "name": "hopechain-sdk",
+  "version": "0.1.0",
+  "description": "HOPE Chain Decentralized AI SDK (TypeScript)",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "prepublishOnly": "npm run build"
+  },
+  "devDependencies": {
+    "typescript": "^5.4.0"
+  }
+}

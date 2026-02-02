@@ -1,0 +1,113 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://hopechain/schemas/task.schema.json",
+  "title": "Task",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "task_type": {
+      "type": "string",
+      "enum": [
+        "chat",
+        "embed",
+        "classify",
+        "summarize",
+        "vision",
+        "agent"
+      ]
+    },
+    "model_family": {
+      "type": "string",
+      "enum": [
+        "llm_tr",
+        "llm_en",
+        "multimodal",
+        "small_fast"
+      ]
+    },
+    "model_hint": {
+      "type": "string"
+    },
+    "inputs": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "constraints": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "max_tokens": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 65536
+        },
+        "temperature": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 2
+        },
+        "top_p": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "latency_sla_ms": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "max_cost_units": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "privacy_level": {
+          "type": "string",
+          "enum": [
+            "public",
+            "standard",
+            "restricted",
+            "confidential"
+          ]
+        }
+      },
+      "required": [
+        "max_tokens",
+        "temperature",
+        "latency_sla_ms",
+        "max_cost_units",
+        "privacy_level"
+      ]
+    },
+    "required_trace": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "citations": {
+          "type": "boolean"
+        },
+        "tool_calls": {
+          "type": "boolean"
+        },
+        "safety_flags": {
+          "type": "boolean"
+        },
+        "reasoning_summary": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "citations",
+        "tool_calls",
+        "safety_flags",
+        "reasoning_summary"
+      ]
+    }
+  },
+  "required": [
+    "task_type",
+    "model_family",
+    "model_hint",
+    "inputs",
+    "constraints",
+    "required_trace"
+  ]
+}
