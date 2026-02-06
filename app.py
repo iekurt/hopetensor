@@ -6,6 +6,8 @@ from main.core import fastapi_routes, APP_NAME, APP_VERSION
 app = FastAPI(title=APP_NAME, version=APP_VERSION)
 fastapi_routes(app)
 
+
+
 INDEX_HTML = '''
 <!doctype html>
 <html lang="en">
@@ -72,3 +74,14 @@ async function run(mode){
 @app.get("/", response_class=HTMLResponse)
 def index():
     return HTMLResponse(INDEX_HTML)
+
+from fastapi import FastAPI
+
+app = FastAPI()
+
+@app.get("/health")
+def health():
+    return {"ok": True}
+
+
+

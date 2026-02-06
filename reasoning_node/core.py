@@ -1,80 +1,209 @@
-# ============================================================
+# reasoning_node/core.py
 # HOPEtensor — Reasoning Infrastructure
 #
 # Author        : Erhan (master)
 # Digital Twin  : Vicdan
-# Date          : 2026-01-19
+# Version       : 0.1.0
 # License       : Proprietary / HOPE Ecosystem
-#
-# This file is part of the HOPEtensor core reasoning system.
-# Designed to serve humanity with conscience-aware AI.
 #
 # "Yurtta barış, Cihanda barış"
 # "In GOD We HOPE"
-# ============================================================
 
 from __future__ import annotations
 
 import os
-import random
 import time
-from typing import Any, Dict
+import uuid
+import platform
+from typing import Any, Dict, List, Optional
 
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.responses import JSONResponse, PlainTextResponse
+from pydantic import BaseModel, Field
 
-ENGINE = os.getenv("REASONING_ENGINE", "fallback").strip()
+APP_NAME = os.getenv("APP_NAME", "hopetensor")
+ENGINE = os.getenv("ENGINE", "fallback")
+VERSION = os.getenv("VERSION", "0.1.0")
 
-
-def _fallback_reason(text: str, trace: bool = False, meta: Dict[str, Any] | None = None) -> Any:
-    """
-    Safe fallback engine: deterministic enough to work, varied enough to not repeat same output.
-    """
-    meta = meta or {}
-    seed_in = f"{text}|{meta.get('seed','')}|{int(time.time())//3}"
-    rnd = random.Random(seed_in)
-
-    starters = [
-        "Anladım.",
-        "Tamam.",
-        "Net.",
-        "Gördüm.",
-        "Aldım.",
-        "Çözdüm.",
+# Plain-text signature (NOT JSON)
+SIGNATURE_TXT = "\n".join(
+    [
+        "HOPEtensor — Reasoning Infrastructure",
+        "",
+        "Author        : Erhan (master)",
+        "Digital Twin  : Vicdan",
+        f"Version       : {VERSION}",
+        f"Deploy        : {os.getenv('RENDER_GIT_COMMIT', os.getenv('GIT_COMMIT', 'dev'))}",
+        "License       : Proprietary / HOPE Ecosystem",
+        "",
+        "\"Yurtta barış, Cihanda barış\"",
+        "\"In GOD We HOPE\"",
+        "",
     ]
-    mids = [
-        "Bunu HOPEtensor akışı içinde ele alıyorum.",
-        "Bunu reasoning node üzerinden işliyorum.",
-        "Bu isteği çekirdek motorla değerlendiriyorum.",
-        "Bunu hızlı ve temiz şekilde çıkarıyorum.",
-        "Bunu netleştirip tek çıktıya bağlıyorum.",
-    ]
-    ends = [
-        "Devam komutunu ver.",
-        "Bir örnek daha at, formatı oturtayım.",
-        "İstersen çıktıyı JSON/markdown olarak sabitleyeyim.",
-        "Sonraki adım: doğrulama ve test endpointleri.",
-        "Hazır.",
-    ]
+)
 
-    msg = f"{rnd.choice(starters)} {rnd.choice(mids)} {rnd.choice(ends)}"
-    if trace:
-        return {
-            "text": msg,
-            "engine": "fallback",
-            "trace": {
-                "engine": ENGINE,
-                "meta_keys": sorted(list(meta.keys())),
-                "note": "fallback wrapper active",
-            },
-        }
-    return msg
+app = FastAPI(title="HOPEtensor", version=VERSION)
 
 
-def reason(text: str, trace: bool = False, meta: Dict[str, Any] | None = None) -> Any:
+# -----------------------------
+# Models
+# -----------------------------
+class ReasonIn(BaseModel):
+    text: str = Field(..., min_length=1)
+    trace: bool = True
+
+
+class V1TaskIn(BaseModel):
+    client_did: Optional[str] = None
+    task: Dict[str, Any]
+
+
+# -----------------------------
+# Helpers
+# -----------------------------
+def _now_ms() -> int:
+    return int(time.time() * 1000)
+
+
+def _safe_str(x: Any) -> str:
+    if x is None:
+        return ""
+    if isinstance(x, str):
+        return x
+    return str(x)
+
+
+def _extract_text_from_v1_task(payload: V1TaskIn) -> str:
+    task = payload.task or {}
+    inputs = task.get("inputs") or {}
+
+    # Preferred: chat messages[-1].content
+    messages = inputs.get("messages") or []
+    if isinstance(messages, list) and messages:
+        last = messages[-1] or {}
+        if isinstance(last, dict):
+            return _safe_str(last.get("content"))
+
+    # Fallback: direct text
+    return _safe_str(inputs.get("text"))
+
+
+def _generate_result_text(prompt: str) -> str:
     """
-    Public API expected by main/core.py
-
-    IMPORTANT: This function MUST exist.
-    Later you can switch ENGINE to real backends (LLM, RAG, etc.).
+    Minimal deterministic "reasoning" placeholder.
+    Swap this with your real engine when ready.
     """
-    # For now: only fallback implemented (guaranteed working)
-    return _fallback_reason(text=text, trace=trace, meta=meta)
+    prompt = prompt.strip()
+    if not prompt:
+        return ""
+    # Keep it short + clean, Turkish-friendly
+    return f"[ok] Received: {prompt}"
+
+
+def _response_envelope(
+    *,
+    request_id: str,
+    ok: bool,
+    result: Any,
+    took_ms: int,
+    meta: Optional[Dict[str, Any]] = None,
+) -> Dict[str, Any]:
+    return {
+        "request_id": request_id,
+        "ok": ok,
+        "result": result,
+        "took_ms": took_ms,
+        "meta": meta or {},
+    }
+
+
+# -----------------------------
+# Routes
+# -----------------------------
+@app.get("/", response_class=PlainTextResponse)
+def root() -> str:
+    return SIGNATURE_TXT
+
+
+@app.get("/signature", response_class=PlainTextResponse)
+def signature() -> str:
+    # MUST be plain text (not JSON)
+    return SIGNATURE_TXT
+
+
+@app.get("/health")
+def health() -> Dict[str, Any]:
+    return {
+        "ok": True,
+        "app": APP_NAME,
+        "version": VERSION,
+        "engine": ENGINE,
+        "ts_ms": _now_ms(),
+        "python": platform.python_version(),
+    }
+
+
+@app.post("/reason")
+async def reason(payload: ReasonIn) -> Dict[str, Any]:
+    t0 = _now_ms()
+    request_id = str(uuid.uuid4())
+
+    out = _generate_result_text(payload.text)
+
+    meta = {
+        "engine": ENGINE,
+        "ts_ms": _now_ms(),
+        "trace": bool(payload.trace),
+    }
+
+    took = _now_ms() - t0
+    return _response_envelope(
+        request_id=request_id,
+        ok=True,
+        result=out,
+        took_ms=took,
+        meta=meta,
+    )
+
+
+# ---- HOPEChain SDK compatibility shim ----
+# SDK calls: POST {base_url}/tasks , where base_url is ".../v1"
+# So we expose: POST /v1/tasks
+@app.post("/v1/tasks")
+async def v1_create_task(payload: V1TaskIn) -> Dict[str, Any]:
+    t0 = _now_ms()
+    request_id = str(uuid.uuid4())
+
+    text = _extract_text_from_v1_task(payload)
+    if not text.strip():
+        raise HTTPException(
+            status_code=400,
+            detail="missing task.inputs.messages[].content (or task.inputs.text)",
+        )
+
+    # Map v1 task -> legacy reason engine
+    out = _generate_result_text(text)
+
+    # Return a stable "task-like" envelope
+    took = _now_ms() - t0
+    return {
+        "ok": True,
+        "request_id": request_id,
+        "took_ms": took,
+        "mode": "v1-shim",
+        "client_did": payload.client_did,
+        "output": {
+            "type": "chat",
+            "text": out,
+        },
+        "meta": {
+            "engine": ENGINE,
+            "ts_ms": _now_ms(),
+        },
+    }
+
+
+# Optional: helpful for debugging bad JSON/encoding quickly
+@app.exception_handler(HTTPException)
+async def http_exc_handler(_: Request, exc: HTTPException):
+    return JSONResponse(status_code=exc.status_code, content={"ok": False, "detail": exc.detail})

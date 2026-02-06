@@ -1,0 +1,9 @@
+Metadata-Version: 2.4
+Name: hopechain-sdk
+Version: 0.1.0
+Summary: HOPE Chain Decentralized AI SDK (Python)
+Requires-Python: >=3.9
+Requires-Dist: requests>=2.31.0
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
