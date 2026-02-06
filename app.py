@@ -15,15 +15,24 @@ import os
 import time
 import uuid
 import platform
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, List
 
+import requests
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse, PlainTextResponse
 from pydantic import BaseModel, Field
 
 APP_NAME = os.getenv("APP_NAME", "hopetensor")
-ENGINE = os.getenv("ENGINE", "fallback")
+ENGINE = os.getenv("ENGINE", "openai" if os.getenv("OPENAI_API_KEY") else "fallback")
 VERSION = os.getenv("VERSION", "0.1.0")
+
+# --- OpenAI-compatible settings (works with OpenAI OR any OpenAI-compatible gateway) ---
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "").strip()
+OPENAI_BASE_URL = os.getenv("OPENAI_BASE_URL", "https://api.openai.com").rstrip("/")
+OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
+OPENAI_TIMEOUT_S = float(os.getenv("OPENAI_TIMEOUT_S", "20"))
+OPENAI_MAX_TOKENS = int(os.getenv("OPENAI_MAX_TOKENS", "256"))
+OPENAI_TEMPERATURE = float(os.getenv("OPENAI_TEMPERATURE", "0.4"))
 
 # Plain-text signature (NOT JSON)
 SIGNATURE_TXT = "\n".join(
@@ -86,11 +95,60 @@ def _extract_text_from_v1_task(payload: V1TaskIn) -> str:
     return _safe_str(inputs.get("text"))
 
 
-def _generate_result_text(prompt: str) -> str:
+def _fallback(prompt: str) -> str:
     prompt = prompt.strip()
     if not prompt:
         return ""
     return f"[ok] Received: {prompt}"
+
+
+def _openai_chat(prompt: str, system: str = "You are Vicdan, a helpful, concise assistant.") -> str:
+    """
+    OpenAI-compatible Chat Completions call.
+    Works with OpenAI or any compatible gateway by setting OPENAI_BASE_URL.
+    """
+    url = f"{OPENAI_BASE_URL}/v1/chat/completions"
+    headers = {
+        "Authorization": f"Bearer {OPENAI_API_KEY}",
+        "Content-Type": "application/json",
+    }
+    body = {
+        "model": OPENAI_MODEL,
+        "messages": [
+            {"role": "system", "content": system},
+            {"role": "user", "content": prompt},
+        ],
+        "max_tokens": OPENAI_MAX_TOKENS,
+        "temperature": OPENAI_TEMPERATURE,
+    }
+
+    r = requests.post(url, headers=headers, json=body, timeout=OPENAI_TIMEOUT_S)
+    r.raise_for_status()
+    data = r.json()
+
+    try:
+        return (data["choices"][0]["message"]["content"] or "").strip()
+    except Exception:
+        # If provider returns slightly different schema
+        return _safe_str(data)
+
+
+def _generate_result_text(prompt: str) -> str:
+    """
+    Real LLM if OPENAI_API_KEY is present; otherwise fallback.
+    """
+    prompt = prompt.strip()
+    if not prompt:
+        return ""
+
+    if OPENAI_API_KEY:
+        try:
+            return _openai_chat(prompt)
+        except Exception as e:
+            # fail-safe: never crash the node
+            return f"[fallback-after-llm-error] {_safe_str(e)} | prompt: {prompt}"
+
+    return _fallback(prompt)
 
 
 # -----------------------------
@@ -101,7 +159,6 @@ def root() -> str:
     return SIGNATURE_TXT
 
 
-# index compatibility (so /index or /index.html won't 404)
 @app.get("/index", response_class=PlainTextResponse)
 def index() -> str:
     return SIGNATURE_TXT
@@ -126,6 +183,12 @@ def health() -> Dict[str, Any]:
         "engine": ENGINE,
         "ts_ms": _now_ms(),
         "python": platform.python_version(),
+        "llm": {
+            "enabled": bool(OPENAI_API_KEY),
+            "base_url": OPENAI_BASE_URL,
+            "model": OPENAI_MODEL,
+            "timeout_s": OPENAI_TIMEOUT_S,
+        },
     }
 
 
@@ -147,7 +210,6 @@ async def reason(payload: ReasonIn) -> Dict[str, Any]:
 
 
 # ---- HOPEChain SDK compatibility shim ----
-# SDK: base_url=".../v1" then POST "{base_url}/tasks" => /v1/tasks
 @app.post("/v1/tasks")
 async def v1_create_task(payload: V1TaskIn) -> Dict[str, Any]:
     t0 = _now_ms()
@@ -167,16 +229,13 @@ async def v1_create_task(payload: V1TaskIn) -> Dict[str, Any]:
         "ok": True,
         "request_id": request_id,
         "took_ms": took,
-        "mode": "v1-shim",
+        "mode": "v1-llm",
         "client_did": payload.client_did,
         "output": {"type": "chat", "text": out},
-        "meta": {"engine": ENGINE, "ts_ms": _now_ms()},
+        "meta": {"engine": ENGINE, "ts_ms": _now_ms(), "model": OPENAI_MODEL if OPENAI_API_KEY else "fallback"},
     }
 
 
 @app.exception_handler(HTTPException)
 async def http_exc_handler(_: Request, exc: HTTPException):
-    return JSONResponse(
-        status_code=exc.status_code,
-        content={"ok": False, "detail": exc.detail},
-    )
+    return JSONResponse(status_code=exc.status_code, content={"ok": False, "detail": exc.detail})
