@@ -1,9 +1,9 @@
 # app.py
-# HOPEtensor — Decentralized AI Node (Hybrid: local + forward)
+# HOPEtensor — Decentralized AI Node (Hybrid: local + peer + backoff)
 #
 # Author        : Erhan (master)
 # Digital Twin  : Vicdan
-# Version       : 0.2.0
+# Version       : 0.2.1
 # License       : Proprietary / HOPE Ecosystem
 #
 # "Yurtta barış, Cihanda barış"
@@ -28,9 +28,8 @@ from pydantic import BaseModel, Field
 # Config
 # -----------------------------
 APP_NAME = os.getenv("APP_NAME", "hopetensor")
-VERSION = os.getenv("VERSION", "0.2.0")
+VERSION = os.getenv("VERSION", "0.2.1")
 
-# Signature
 SIGNATURE_TXT = "\n".join(
     [
         "HOPEtensor — Decentralized AI Node",
@@ -41,13 +40,13 @@ SIGNATURE_TXT = "\n".join(
         f"Deploy        : {os.getenv('RENDER_GIT_COMMIT', os.getenv('GIT_COMMIT', 'dev'))}",
         "License       : Proprietary / HOPE Ecosystem",
         "",
-        "\"Yurtta barış, Cihanda barış\"",
+        "\"Yurtta barış, cihanda barış\"",
         "\"In GOD We HOPE\"",
         "",
     ]
 )
 
-# Local engine (OpenAI-compatible; can be OpenAI or any compatible gateway)
+# Local engine (OpenAI-compatible)
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "").strip()
 OPENAI_BASE_URL = os.getenv("OPENAI_BASE_URL", "https://api.openai.com").rstrip("/")
 OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
@@ -59,29 +58,19 @@ OPENAI_SYSTEM = os.getenv(
     "You are Vicdan, a helpful, concise assistant. Reply in Turkish unless asked otherwise.",
 )
 
+# Backoff / retry on 429
+LLM_MAX_RETRIES = int(os.getenv("LLM_MAX_RETRIES", "2"))  # retries AFTER first attempt
+LLM_BACKOFF_BASE_S = float(os.getenv("LLM_BACKOFF_BASE_S", "0.6"))  # 0.6s, 1.2s, ...
+
 # Peer forwarding (Decentralized)
-# Comma-separated: "https://node-a.onrender.com,https://node-b.onrender.com"
 PEER_URLS: List[str] = [u.strip().rstrip("/") for u in os.getenv("PEER_URLS", "").split(",") if u.strip()]
-
-# Routing modes:
-# - local_first: try local engine, if fail -> peers
-# - peer_first: try peers, if all fail -> local
-# - hybrid: maybe forward (probabilistic) + local fallback
-ROUTING_MODE = os.getenv("ROUTING_MODE", "hybrid").strip().lower()
-
-# In hybrid mode, probability to attempt peer(s) first
+ROUTING_MODE = os.getenv("ROUTING_MODE", "hybrid").strip().lower()  # hybrid|peer_first|local_first
 FORWARD_PROB = float(os.getenv("FORWARD_PROB", "0.50"))
-
-# How many peers to try (random sample from PEER_URLS)
 PEER_FANOUT = int(os.getenv("PEER_FANOUT", "2"))
-
-# Timeouts for peer calls
 PEER_TIMEOUT_S = float(os.getenv("PEER_TIMEOUT_S", "12"))
 
-# -----------------------------
-# FastAPI
-# -----------------------------
 app = FastAPI(title="HOPEtensor", version=VERSION)
+
 
 # -----------------------------
 # Models
@@ -134,7 +123,8 @@ def _fallback(prompt: str) -> str:
     return f"[fallback] Received: {prompt}"
 
 
-def _openai_chat(prompt: str) -> str:
+def _openai_chat_once(prompt: str) -> str:
+    """Single attempt OpenAI-compatible chat call."""
     if not OPENAI_API_KEY:
         raise RuntimeError("OPENAI_API_KEY missing")
 
@@ -151,9 +141,50 @@ def _openai_chat(prompt: str) -> str:
     }
 
     r = requests.post(url, headers=headers, json=body, timeout=OPENAI_TIMEOUT_S)
-    r.raise_for_status()
+
+    # For retries, we need to see status codes
+    if r.status_code >= 400:
+        try:
+            r.raise_for_status()
+        except requests.HTTPError as e:
+            # attach status code
+            raise requests.HTTPError(f"{e}", response=r) from e
+
     data = r.json()
     return (data.get("choices", [{}])[0].get("message", {}).get("content") or "").strip()
+
+
+def _openai_chat_with_backoff(prompt: str) -> Tuple[bool, str, Dict[str, Any]]:
+    """
+    Retries on 429 with exponential backoff.
+    Returns: (ok, text, meta)
+    """
+    meta: Dict[str, Any] = {"engine": "local_llm", "model": OPENAI_MODEL, "base_url": OPENAI_BASE_URL}
+
+    attempt = 0
+    while True:
+        try:
+            text = _openai_chat_once(prompt)
+            meta["attempts"] = attempt + 1
+            return True, text, meta
+        except requests.HTTPError as e:
+            status = getattr(e.response, "status_code", None)
+            meta["last_http_status"] = status
+            meta["last_error"] = str(e)
+
+            # Retry only on 429
+            if status == 429 and attempt < LLM_MAX_RETRIES:
+                backoff = LLM_BACKOFF_BASE_S * (2 ** attempt)
+                time.sleep(backoff)
+                attempt += 1
+                continue
+
+            meta["attempts"] = attempt + 1
+            return False, "", meta
+        except Exception as e:
+            meta["last_error"] = str(e)
+            meta["attempts"] = attempt + 1
+            return False, "", meta
 
 
 def _peer_candidates() -> List[str]:
@@ -167,15 +198,10 @@ def _peer_candidates() -> List[str]:
 
 
 def _call_peer_v1_tasks(peer_base: str, payload: V1TaskIn) -> Tuple[bool, str, Dict[str, Any]]:
-    """
-    Calls peer /v1/tasks with the SAME payload.
-    Returns: (ok, peer_url, response_json)
-    """
     url = f"{peer_base}/v1/tasks"
     try:
         r = requests.post(url, json=payload.model_dump(), timeout=PEER_TIMEOUT_S)
-        # If peer responds but not ok, still parse json
-        data = {}
+        data: Dict[str, Any]
         try:
             data = r.json()
         except Exception:
@@ -184,7 +210,6 @@ def _call_peer_v1_tasks(peer_base: str, payload: V1TaskIn) -> Tuple[bool, str, D
         if r.status_code >= 400:
             return False, peer_base, {"http": r.status_code, "data": data}
 
-        # Expect peer returns {"ok": True, ...}
         if isinstance(data, dict) and data.get("ok") is True:
             return True, peer_base, data
 
@@ -194,9 +219,6 @@ def _call_peer_v1_tasks(peer_base: str, payload: V1TaskIn) -> Tuple[bool, str, D
 
 
 def _route_and_generate(prompt: str, v1_payload: Optional[V1TaskIn] = None) -> Tuple[str, Dict[str, Any]]:
-    """
-    Returns (text_output, meta)
-    """
     meta: Dict[str, Any] = {
         "routing_mode": ROUTING_MODE,
         "peers_configured": len(PEER_URLS),
@@ -204,52 +226,39 @@ def _route_and_generate(prompt: str, v1_payload: Optional[V1TaskIn] = None) -> T
         "ts_ms": _now_ms(),
     }
 
-    # Decide order
     peers = _peer_candidates()
-    do_peer_first = False
 
     if ROUTING_MODE == "peer_first":
         do_peer_first = True
     elif ROUTING_MODE == "local_first":
         do_peer_first = False
     else:
-        # hybrid
         do_peer_first = (random.random() < FORWARD_PROB) and bool(peers)
 
     meta["peer_first"] = do_peer_first
     meta["peer_candidates"] = peers
 
-    # Helper: run local
     def run_local() -> Tuple[bool, str, Dict[str, Any]]:
         if OPENAI_API_KEY:
-            try:
-                out = _openai_chat(prompt)
-                return True, out, {"engine": "local_llm", "model": OPENAI_MODEL, "base_url": OPENAI_BASE_URL}
-            except Exception as e:
-                return False, "", {"engine": "local_llm", "error": str(e)}
-        # No local engine configured -> fallback
+            ok, out, m = _openai_chat_with_backoff(prompt)
+            return ok, out, m
         return True, _fallback(prompt), {"engine": "fallback"}
 
-    # Helper: run peers
     def run_peers() -> Tuple[bool, str, Dict[str, Any]]:
         if not peers or v1_payload is None:
             return False, "", {"engine": "peers", "error": "no peers or missing v1 payload"}
         for p in peers:
             ok, peer_url, data = _call_peer_v1_tasks(p, v1_payload)
             if ok:
-                # Try to extract output text from peer schema
                 text = ""
-                if isinstance(data, dict):
-                    out = data.get("output") or {}
-                    if isinstance(out, dict):
-                        text = _safe_str(out.get("text")).strip()
+                out = data.get("output") or {}
+                if isinstance(out, dict):
+                    text = _safe_str(out.get("text")).strip()
                 if not text:
-                    text = _safe_str(data)
-
+                    text = _safe_str(data).strip()
                 return True, text, {"engine": "peer", "peer": peer_url}
         return False, "", {"engine": "peers", "error": "all peers failed"}
 
-    # Execute based on order
     if do_peer_first:
         okp, outp, mp = run_peers()
         meta["peer_result"] = mp
@@ -258,7 +267,9 @@ def _route_and_generate(prompt: str, v1_payload: Optional[V1TaskIn] = None) -> T
 
         okl, outl, ml = run_local()
         meta["local_result"] = ml
-        return outl, meta
+        if okl and outl:
+            return outl, meta
+
     else:
         okl, outl, ml = run_local()
         meta["local_result"] = ml
@@ -270,9 +281,8 @@ def _route_and_generate(prompt: str, v1_payload: Optional[V1TaskIn] = None) -> T
         if okp and outp:
             return outp, meta
 
-        # Last resort
-        meta["engine"] = "fallback_last"
-        return _fallback(prompt), meta
+    meta["engine"] = "fallback_last"
+    return _fallback(prompt), meta
 
 
 # -----------------------------
@@ -318,6 +328,8 @@ def health() -> Dict[str, Any]:
             "base_url": OPENAI_BASE_URL,
             "model": OPENAI_MODEL,
             "timeout_s": OPENAI_TIMEOUT_S,
+            "max_retries": LLM_MAX_RETRIES,
+            "backoff_base_s": LLM_BACKOFF_BASE_S,
         },
     }
 
