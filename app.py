@@ -3,125 +3,65 @@ from pydantic import BaseModel
 from typing import Dict, List
 import pulp
 
-app = FastAPI(title="HOPEtensor AI v4.3 - Weakest First Engine")
+app = FastAPI(title="HOPEtensor v6 - Dynamic Civilization Engine")
 
-# ==========================================================
-# Request Model
-# ==========================================================
 
-class IntentRequest(BaseModel):
-    intent: str
+class DynamicRequest(BaseModel):
     regions: List[str]
     vulnerability: Dict[str, float]
     budget: float
+    periods: int
+    impact: float   # k coefficient
 
 
-# ==========================================================
-# Doctrine Parameters (Locked - Weakest First)
-# ==========================================================
+def run_period(regions, vulnerability, budget):
 
-ALPHA = 0.9   # utility weight
-BETA = 0.2    # inequality penalty
-GAMMA = 1.6   # vulnerability dominance
-DELTA = 0.3   # power concentration penalty
+    prob = pulp.LpProblem("Deep_Rise_Period", pulp.LpMaximize)
 
-
-# ==========================================================
-# LP ENGINE
-# ==========================================================
-
-def run_civilization_lp(regions, vulnerability_score, budget):
-
-    prob = pulp.LpProblem("HOPEtensor_Civilization", pulp.LpMaximize)
-
-    # Decision variables
     allocation = {
         r: pulp.LpVariable(f"alloc_{r}", lowBound=0)
         for r in regions
     }
 
-    # -------------------------
-    # Utility
-    # -------------------------
-    utility = pulp.lpSum([allocation[r] for r in regions])
+    z = pulp.LpVariable("z", lowBound=0)
 
-    # -------------------------
-    # Vulnerability Bonus
-    # -------------------------
-    vulnerable_bonus = pulp.lpSum([
-        vulnerability_score.get(r, 0) * allocation[r]
-        for r in regions
-    ])
-
-    # -------------------------
-    # Power Concentration
-    # -------------------------
-    max_alloc = pulp.LpVariable("max_alloc", lowBound=0)
     for r in regions:
-        prob += allocation[r] <= max_alloc
+        v = max(vulnerability.get(r, 0.0001), 0.0001)
+        prob += allocation[r] >= z * v
 
-    power_penalty = max_alloc
+    prob += pulp.lpSum(allocation.values()) <= budget
 
-    # -------------------------
-    # Inequality (Pairwise Absolute Differences)
-    # -------------------------
-    diff_vars = []
-    for i in range(len(regions)):
-        for j in range(i + 1, len(regions)):
-            diff = pulp.LpVariable(f"diff_{i}_{j}", lowBound=0)
-            prob += allocation[regions[i]] - allocation[regions[j]] <= diff
-            prob += allocation[regions[j]] - allocation[regions[i]] <= diff
-            diff_vars.append(diff)
-
-    inequality_penalty = pulp.lpSum(diff_vars)
-
-    # -------------------------
-    # Objective (Doctrine v1)
-    # -------------------------
-    prob += (
-        ALPHA * utility
-        + GAMMA * vulnerable_bonus
-        - DELTA * power_penalty
-        - BETA * inequality_penalty
-    )
-
-    # -------------------------
-    # Budget Constraint
-    # -------------------------
-    prob += utility <= budget
-
-    # Solve
+    prob += z
     prob.solve()
 
+    return {r: allocation[r].value() for r in regions}
+
+
+@app.post("/dynamic-deep-rise")
+def dynamic_deep_rise(req: DynamicRequest):
+
+    regions = req.regions
+    vulnerability = req.vulnerability.copy()
+    history = []
+
+    for t in range(req.periods):
+
+        allocation = run_period(regions, vulnerability, req.budget)
+
+        # Update vulnerability
+        for r in regions:
+            vulnerability[r] = max(
+                0,
+                vulnerability[r] - req.impact * allocation[r]
+            )
+
+        history.append({
+            "period": t,
+            "allocation": {r: round(allocation[r], 2) for r in regions},
+            "vulnerability": {r: round(vulnerability[r], 4) for r in regions}
+        })
+
     return {
-        "status": pulp.LpStatus[prob.status],
-        "allocation": {
-            r: round(allocation[r].value(), 2)
-            for r in regions
-        }
-    }
-
-
-# ==========================================================
-# Endpoint
-# ==========================================================
-
-@app.post("/civilization-optimize")
-def civilization_optimize(req: IntentRequest):
-
-    result = run_civilization_lp(
-        req.regions,
-        req.vulnerability,
-        req.budget
-    )
-
-    return {
-        "doctrine": "Weakest First",
-        "parameters": {
-            "alpha": ALPHA,
-            "beta": BETA,
-            "gamma": GAMMA,
-            "delta": DELTA
-        },
-        "result": result
+        "engine": "Dynamic Deep Rise",
+        "history": history
     }
