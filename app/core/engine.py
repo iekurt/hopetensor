@@ -1,9 +1,21 @@
 import pulp
+from decimal import Decimal
 from .config import MIN_VULNERABILITY
-
+from app.core.math.precision import to_decimal, round_decimal
 
 def run_maxmin_allocation(regions, vulnerability, budget):
 
+    # ---- INPUT SANITIZATION ----
+    budget = float(to_decimal(budget))
+
+    sanitized_vulnerability = {}
+    for r in regions:
+        v_raw = vulnerability.get(r, MIN_VULNERABILITY)
+        v_dec = to_decimal(v_raw)
+        min_v = to_decimal(MIN_VULNERABILITY)
+        sanitized_vulnerability[r] = float(max(v_dec, min_v))
+
+    # ---- OPT MODEL ----
     prob = pulp.LpProblem("HOPEtensor_MaxMin", pulp.LpMaximize)
 
     allocation = {
@@ -13,15 +25,10 @@ def run_maxmin_allocation(regions, vulnerability, budget):
 
     z = pulp.LpVariable("z", lowBound=0)
 
-    # Weakest-First Structural Constraint
     for r in regions:
-        v = max(vulnerability.get(r, MIN_VULNERABILITY), MIN_VULNERABILITY)
-        prob += allocation[r] >= z * v
+        prob += allocation[r] >= z * sanitized_vulnerability[r]
 
-    # Budget Constraint
     prob += pulp.lpSum(allocation.values()) <= budget
-
-    # Objective
     prob += z
 
     prob.solve()
@@ -29,10 +36,15 @@ def run_maxmin_allocation(regions, vulnerability, budget):
     if pulp.LpStatus[prob.status] != "Optimal":
         raise ValueError("Optimization did not converge")
 
+    # ---- OUTPUT HARDENING ----
+    z_val = round_decimal(to_decimal(z.value()), 6)
+
+    allocation_result = {
+        r: round_decimal(to_decimal(allocation[r].value()), 4)
+        for r in regions
+    }
+
     return {
-        "minimum_stability": round(z.value(), 6),
-        "allocation": {
-            r: round(allocation[r].value(), 4)
-            for r in regions
-        }
+        "minimum_stability": float(z_val),
+        "allocation": {r: float(allocation_result[r]) for r in regions}
     }
