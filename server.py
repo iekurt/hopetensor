@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 import time
 
 APP_NAME = "HOPEtensor"
-APP_VERSION = "0.3.2"
+APP_VERSION = "0.3.3"
 
 app = FastAPI(
     title=APP_NAME,
