@@ -1,311 +1,188 @@
+from __future__ import annotations
+
+import asyncio
+import uuid
+from contextlib import asynccontextmanager
+from datetime import datetime, timezone
+from enum import Enum
+from typing import Any
+
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field
-from typing import Optional, Any, Dict, List
-from uuid import uuid4
-from datetime import datetime, timezone
-import time
-
-APP_NAME = "HOPEtensor"
-APP_VERSION = "0.3.2"
-
-app = FastAPI(
-    title=APP_NAME,
-    version=APP_VERSION,
-    description="HOPEtensor Core API"
-)
 
 
-def now_iso() -> str:
+def utc_now() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
-def make_trace(step: str, meta: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
-    return {
-        "step": step,
-        "at": now_iso(),
-        "meta": meta or {}
-    }
+class TaskStatus(str, Enum):
+    pending = "pending"
+    running = "running"
+    completed = "completed"
+    failed = "failed"
 
 
-class AllocationRequest(BaseModel):
-    regions: List[str]
-    vulnerability: List[float]
-    budget: float
-
-
-class DynamicRequest(BaseModel):
-    regions: List[str]
-    vulnerability: List[float]
-    budget: float
-    periods: int
-    impact: float
-
-
-class TaskInput(BaseModel):
-    text: str
-
-
-class TaskConstraints(BaseModel):
-    max_latency_ms: Optional[int] = 5000
-    require_trace: Optional[bool] = True
-
-
-class TaskRequest(BaseModel):
-    client_did: Optional[str] = "did:hope:user:anonymous"
-    task_type: str = Field(default="reasoning")
-    input: TaskInput
-    constraints: Optional[TaskConstraints] = TaskConstraints()
-
-
-class TaskResult(BaseModel):
-    output_text: str
-
-
-class TaskError(BaseModel):
-    code: str
-    message: str
+class TaskCreate(BaseModel):
+    type: str = Field(..., examples=["generate_text"])
+    payload: dict[str, Any] = Field(default_factory=dict)
 
 
 class TaskResponse(BaseModel):
-    request_id: str
-    ok: bool
-    result: Optional[TaskResult] = None
-    trace: List[Dict[str, Any]] = []
-    meta: Dict[str, Any] = {}
-    error: Optional[TaskError] = None
+    id: str
+    type: str
+    payload: dict[str, Any]
+    status: TaskStatus
+    result: Any | None = None
+    error: str | None = None
+    created_at: str
+    updated_at: str
 
 
-def validate_regions(regions: List[str], vulnerability: List[float]) -> None:
-    if not regions:
-        raise ValueError("regions must not be empty")
-    if not vulnerability:
-        raise ValueError("vulnerability must not be empty")
-    if len(regions) != len(vulnerability):
-        raise ValueError("regions and vulnerability must have the same length")
-    if any(v < 0 for v in vulnerability):
-        raise ValueError("vulnerability values must be non-negative")
+class TaskStore:
+    def __init__(self) -> None:
+        self.tasks: dict[str, TaskResponse] = {}
+        self.queue: asyncio.Queue[str] = asyncio.Queue()
+
+    async def create_task(self, data: TaskCreate) -> TaskResponse:
+        task_id = str(uuid.uuid4())
+        now = utc_now()
+
+        task = TaskResponse(
+            id=task_id,
+            type=data.type,
+            payload=data.payload,
+            status=TaskStatus.pending,
+            result=None,
+            error=None,
+            created_at=now,
+            updated_at=now,
+        )
+
+        self.tasks[task_id] = task
+        await self.queue.put(task_id)
+        return task
+
+    def get_task(self, task_id: str) -> TaskResponse | None:
+        return self.tasks.get(task_id)
+
+    def list_tasks(self) -> list[TaskResponse]:
+        return list(self.tasks.values())
+
+    def update_status(
+        self,
+        task_id: str,
+        status: TaskStatus,
+        *,
+        result: Any | None = None,
+        error: str | None = None,
+    ) -> None:
+        task = self.tasks.get(task_id)
+        if not task:
+            return
+
+        task.status = status
+        task.updated_at = utc_now()
+
+        if result is not None:
+            task.result = result
+
+        if error is not None:
+            task.error = error
 
 
-def run_maxmin_allocation(
-    regions: List[str],
-    vulnerability: List[float],
-    budget: float
-) -> Dict[str, Any]:
-    validate_regions(regions, vulnerability)
+store = TaskStore()
+worker_task: asyncio.Task | None = None
 
-    total_vulnerability = sum(vulnerability)
-    if total_vulnerability <= 0:
-        per_region = budget / len(regions)
-        allocation = {region: round(per_region, 4) for region in regions}
-    else:
-        allocation = {
-            region: round((v / total_vulnerability) * budget, 4)
-            for region, v in zip(regions, vulnerability)
+
+async def process_task(task: TaskResponse) -> Any:
+    """
+    Buraya gerçek iş mantığını koyacaksın.
+    Şimdilik demo amaçlı birkaç task type destekliyor.
+    """
+    await asyncio.sleep(2)
+
+    if task.type == "generate_text":
+        prompt = str(task.payload.get("prompt", "")).strip()
+        if not prompt:
+            raise ValueError("payload.prompt is required for generate_text")
+
+        return {
+            "message": f"Generated response for: {prompt}",
+            "length": len(prompt),
         }
 
-    weakest_index = max(range(len(vulnerability)), key=lambda i: vulnerability[i])
+    if task.type == "sum_numbers":
+        numbers = task.payload.get("numbers", [])
+        if not isinstance(numbers, list):
+            raise ValueError("payload.numbers must be a list")
 
-    return {
-        "budget": budget,
-        "priority_region": regions[weakest_index],
-        "allocation": allocation
-    }
-
-
-def run_dynamic_evolution(
-    regions: List[str],
-    vulnerability: List[float],
-    budget: float,
-    periods: int,
-    impact: float
-) -> List[Dict[str, Any]]:
-    validate_regions(regions, vulnerability)
-
-    current = [float(v) for v in vulnerability]
-    history: List[Dict[str, Any]] = []
-
-    for period in range(1, periods + 1):
-        total = sum(current)
-        if total <= 0:
-            allocation_values = [budget / len(regions)] * len(regions)
-        else:
-            allocation_values = [(v / total) * budget for v in current]
-
-        allocation = {
-            region: round(value, 4)
-            for region, value in zip(regions, allocation_values)
+        total = sum(float(x) for x in numbers)
+        return {
+            "numbers": numbers,
+            "total": total,
         }
 
-        weakest_index = max(range(len(current)), key=lambda i: current[i])
-
-        history.append({
-            "period": period,
-            "priority_region": regions[weakest_index],
-            "allocation": allocation,
-            "vulnerability_before": {
-                region: round(value, 4)
-                for region, value in zip(regions, current)
-            }
-        })
-
-        next_current = []
-        for v, alloc in zip(current, allocation_values):
-            reduced = max(0.0, v - (alloc * impact))
-            next_current.append(reduced)
-        current = next_current
-
-    return history
+    raise ValueError(f"Unsupported task type: {task.type}")
 
 
-class LocalWorker:
-    name = "local_stub"
+async def worker_loop() -> None:
+    while True:
+        task_id = await store.queue.get()
+        task = store.get_task(task_id)
 
-    def run(self, text: str) -> str:
-        text = text.strip()
-        if not text:
-            return "Empty input received."
-        return f"HOPEtensor says: {text}"
-
-
-class Coordinator:
-    def __init__(self):
-        self.worker = LocalWorker()
-
-    def select_worker(self, task: TaskRequest) -> str:
-        return self.worker.name
-
-    def execute(self, task: TaskRequest) -> TaskResponse:
-        request_id = f"req_{uuid4().hex[:12]}"
-        trace: List[Dict[str, Any]] = []
-        started = time.perf_counter()
+        if task is None:
+            store.queue.task_done()
+            continue
 
         try:
-            trace.append(make_trace("task_received", {
-                "task_type": task.task_type,
-                "client_did": task.client_did
-            }))
-
-            engine = self.select_worker(task)
-
-            trace.append(make_trace("routed", {
-                "engine": engine,
-                "reason": "single_app_mvp"
-            }))
-
-            output = self.worker.run(task.input.text)
-
-            latency_ms = int((time.perf_counter() - started) * 1000)
-
-            trace.append(make_trace("completed", {
-                "latency_ms": latency_ms
-            }))
-
-            return TaskResponse(
-                request_id=request_id,
-                ok=True,
-                result=TaskResult(output_text=output),
-                trace=trace if task.constraints and task.constraints.require_trace else [],
-                meta={
-                    "engine": engine,
-                    "latency_ms": latency_ms,
-                    "version": APP_VERSION
-                },
-                error=None
-            )
-
-        except Exception as e:
-            latency_ms = int((time.perf_counter() - started) * 1000)
-
-            trace.append(make_trace("failed", {
-                "reason": "worker_exception",
-                "detail": str(e),
-                "latency_ms": latency_ms
-            }))
-
-            return TaskResponse(
-                request_id=request_id,
-                ok=False,
-                result=None,
-                trace=trace if task.constraints and task.constraints.require_trace else [],
-                meta={
-                    "version": APP_VERSION,
-                    "latency_ms": latency_ms
-                },
-                error=TaskError(
-                    code="WORKER_ERROR",
-                    message="Task execution failed"
-                )
-            )
+            store.update_status(task_id, TaskStatus.running)
+            result = await process_task(task)
+            store.update_status(task_id, TaskStatus.completed, result=result)
+        except Exception as exc:
+            store.update_status(task_id, TaskStatus.failed, error=str(exc))
+        finally:
+            store.queue.task_done()
 
 
-coordinator = Coordinator()
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    global worker_task
+    worker_task = asyncio.create_task(worker_loop())
+    yield
+    if worker_task:
+        worker_task.cancel()
+        try:
+            await worker_task
+        except asyncio.CancelledError:
+            pass
+
+
+app = FastAPI(title="HOPEtensor", version="0.1.0", lifespan=lifespan)
 
 
 @app.get("/")
-def root():
-    return {
-        "name": APP_NAME,
-        "version": APP_VERSION,
-        "status": "ok",
-        "message": "HOPEtensor — Reasoning Infrastructure"
-    }
+async def root() -> dict[str, str]:
+    return {"message": "HOPEtensor is alive"}
 
 
 @app.get("/health")
-def health():
-    return "ok"
+async def health() -> dict[str, str]:
+    return {"status": "ok"}
 
 
-@app.get("/routes")
-def routes():
-    return {
-        "routes": [
-            "/",
-            "/health",
-            "/routes",
-            "/deep-rise",
-            "/dynamic-deep-rise",
-            "/v1/tasks"
-        ]
-    }
+@app.post("/v1/tasks", response_model=TaskResponse, status_code=201)
+async def create_task(task: TaskCreate) -> TaskResponse:
+    return await store.create_task(task)
 
 
-@app.post("/deep-rise")
-def deep_rise(req: AllocationRequest):
-    try:
-        result = run_maxmin_allocation(
-            req.regions,
-            req.vulnerability,
-            req.budget
-        )
-        return {
-            "engine": "Max-Min Civilization Core",
-            "doctrine": "Weakest First",
-            "result": result
-        }
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+@app.get("/v1/tasks", response_model=list[TaskResponse])
+async def list_tasks() -> list[TaskResponse]:
+    return store.list_tasks()
 
 
-@app.post("/dynamic-deep-rise")
-def dynamic_deep_rise(req: DynamicRequest):
-    try:
-        history = run_dynamic_evolution(
-            req.regions,
-            req.vulnerability,
-            req.budget,
-            req.periods,
-            req.impact
-        )
-        return {
-            "engine": "Dynamic Civilization Core",
-            "doctrine": "Weakest First",
-            "history": history
-        }
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
-
-
-@app.post("/v1/tasks", response_model=TaskResponse)
-def create_task(task: TaskRequest):
-    return coordinator.execute(task)
+@app.get("/v1/tasks/{task_id}", response_model=TaskResponse)
+async def get_task(task_id: str) -> TaskResponse:
+    task = store.get_task(task_id)
+    if not task:
+        raise HTTPException(status_code=404, detail="Task not found")
+    return task
