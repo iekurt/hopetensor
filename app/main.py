@@ -10,6 +10,8 @@ from typing import Any
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field
 
+from app.utils.validation import parse_number_list
+
 
 def utc_now() -> str:
     return datetime.now(timezone.utc).isoformat()
@@ -112,11 +114,8 @@ async def process_task(task: TaskResponse) -> Any:
         }
 
     if task.type == "sum_numbers":
-        numbers = task.payload.get("numbers", [])
-        if not isinstance(numbers, list):
-            raise ValueError("payload.numbers must be a list")
-
-        total = sum(float(x) for x in numbers)
+        numbers = parse_number_list(task.payload.get("numbers", []), field_name="numbers")
+        total = sum(numbers)
         return {
             "numbers": numbers,
             "total": total,

@@ -1,7 +1,65 @@
 services:
   - type: web
-    name: hopetensor
+    name: hopetensor-coordinator
     env: python
     buildCommand: pip install -r requirements.txt
-    startCommand: uvicorn server:app --host 0.0.0.0 --port 10000
+    startCommand: uvicorn coordinator:app --host 0.0.0.0 --port 10000
+    plan: free
+    envVars:
+      - key: NODE_A_REASON_URL
+        value: https://hopetensor-reasoning-a.onrender.com/reason
+      - key: NODE_B_REASON_URL
+        value: https://hopetensor-reasoning-b.onrender.com/reason
+      - key: VERIFY_URL
+        value: https://hopetensor-verification.onrender.com/verify
+      - key: ETHICS_URL
+        value: https://hopetensor-ethics.onrender.com/ethics
+      - key: OBSERVER_URL
+        value: https://hopetensor-observer.onrender.com/log
+      - key: HTTP_TIMEOUT_SECONDS
+        value: "8"
+
+  - type: web
+    name: hopetensor-reasoning-a
+    env: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn reasoning_node.core:app --host 0.0.0.0 --port 10000
+    plan: free
+    envVars:
+      - key: APP_NAME
+        value: hopetensor-reasoning-a
+      - key: ENGINE
+        value: fallback
+
+  - type: web
+    name: hopetensor-reasoning-b
+    env: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn reasoning_node.core:app --host 0.0.0.0 --port 10000
+    plan: free
+    envVars:
+      - key: APP_NAME
+        value: hopetensor-reasoning-b
+      - key: ENGINE
+        value: fallback
+
+  - type: web
+    name: hopetensor-verification
+    env: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn verification_node:app --host 0.0.0.0 --port 10000
+    plan: free
+
+  - type: web
+    name: hopetensor-ethics
+    env: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn ethics_node:app --host 0.0.0.0 --port 10000
+    plan: free
+
+  - type: web
+    name: hopetensor-observer
+    env: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn observer_node:app --host 0.0.0.0 --port 10000
     plan: free

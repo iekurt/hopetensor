@@ -47,6 +47,8 @@ hopetensor/
 - **Whitepaper** → `docs/whitepaper/`
 - **Technical Specification** → `docs/techspec/`
 - **SDKs** → `sdk/`
+- **Contributing Guide** → `CONTRIBUTING.md`
+- **Production Deploy Guide** → `docs/production-deploy.md`
 
 ---
 
