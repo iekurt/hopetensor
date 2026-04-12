@@ -24,6 +24,8 @@ HTTP_TIMEOUT_SECONDS = float(os.getenv("HTTP_TIMEOUT_SECONDS", "8"))
 
 class QueryRequest(BaseModel):
     query: str
+    client_did: str | None = None
+
 
 
 def weighted_score(confidence: float, ethics_score: float, verification_score: float) -> float:
@@ -122,7 +124,9 @@ def query(req: QueryRequest):
     )
 
     return {
+        "request_id": request_id,
         "task_id": task_id,
+        "client_did": client_did or None,
         "final_output": best["output"],
         "final_score": best_score,
         "meta": {
