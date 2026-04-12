@@ -1,0 +1,55 @@
+version: "3.9"
+
+services:
+  coordinator:
+    build: .
+    container_name: hopetensor-coordinator
+    command: ["uvicorn", "coordinator:app", "--host", "0.0.0.0", "--port", "8000"]
+    environment:
+      NODE_A_REASON_URL: http://reasoning-a:8001/reason
+      NODE_B_REASON_URL: http://reasoning-b:8002/reason
+      VERIFY_URL: http://verification:8003/verify
+      ETHICS_URL: http://ethics:8004/ethics
+      OBSERVER_URL: http://observer:8005/log
+      HTTP_TIMEOUT_SECONDS: "8"
+    ports:
+      - "8000:8000"
+    depends_on:
+      - reasoning-a
+      - reasoning-b
+      - verification
+      - ethics
+      - observer
+
+  reasoning-a:
+    build: .
+    container_name: hopetensor-reasoning-a
+    command: ["uvicorn", "reasoning_node.core:app", "--host", "0.0.0.0", "--port", "8001"]
+    environment:
+      APP_NAME: hopetensor-reasoning-a
+      ENGINE: fallback
+      VERSION: "0.1.0"
+
+  reasoning-b:
+    build: .
+    container_name: hopetensor-reasoning-b
+    command: ["uvicorn", "reasoning_node.core:app", "--host", "0.0.0.0", "--port", "8002"]
+    environment:
+      APP_NAME: hopetensor-reasoning-b
+      ENGINE: fallback
+      VERSION: "0.1.0"
+
+  verification:
+    build: .
+    container_name: hopetensor-verification
+    command: ["uvicorn", "verification_node:app", "--host", "0.0.0.0", "--port", "8003"]
+
+  ethics:
+    build: .
+    container_name: hopetensor-ethics
+    command: ["uvicorn", "ethics_node:app", "--host", "0.0.0.0", "--port", "8004"]
+
+  observer:
+    build: .
+    container_name: hopetensor-observer
+    command: ["uvicorn", "observer_node:app", "--host", "0.0.0.0", "--port", "8005"]
