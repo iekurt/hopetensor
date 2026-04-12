@@ -36,14 +36,10 @@ class CoordinatorQueryTests(unittest.TestCase):
             raise AssertionError(f"Unexpected URL {url}")
 
         with patch("coordinator._post_json", side_effect=fake_post_json):
-            body = coordinator.query(
-                coordinator.QueryRequest(query="merhaba", client_did="did:hope:app:test123")
-            )
+            body = coordinator.query(coordinator.QueryRequest(query="merhaba"))
 
         self.assertIn("final_output", body)
         self.assertGreater(body["final_score"], 0)
-        self.assertEqual(body["client_did"], "did:hope:app:test123")
-        self.assertIn("request_id", body)
 
     def test_query_rejects_empty_input(self):
         with self.assertRaises(HTTPException) as exc:
@@ -53,11 +49,3 @@ class CoordinatorQueryTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
-
-
-class CoordinatorDidValidationTests(unittest.TestCase):
-    def test_query_rejects_invalid_client_did(self):
-        with self.assertRaises(HTTPException) as exc:
-            coordinator.query(coordinator.QueryRequest(query="hello", client_did="did:other:123"))
-        self.assertEqual(exc.exception.status_code, 400)
-

@@ -27,6 +27,7 @@ class QueryRequest(BaseModel):
     client_did: str | None = None
 
 
+
 def weighted_score(confidence: float, ethics_score: float, verification_score: float) -> float:
     return confidence * ethics_score * verification_score
 
@@ -77,14 +78,9 @@ def _extract_reasoning_output(raw: dict[str, Any], *, node_id: str) -> dict[str,
 @app.post("/query")
 def query(req: QueryRequest):
     task_id = str(uuid.uuid4())
-    request_id = str(uuid.uuid4())
     q = req.query.strip()
     if not q:
         raise HTTPException(status_code=400, detail="query must not be empty")
-
-    client_did = (req.client_did or "").strip()
-    if client_did and not client_did.startswith("did:hope:"):
-        raise HTTPException(status_code=400, detail="client_did must start with did:hope:")
 
     responses = []
     for node_id, url in REASONING_NODES:
@@ -117,8 +113,6 @@ def query(req: QueryRequest):
         {
             "task_id": task_id,
             "data": {
-                "request_id": request_id,
-                "client_did": client_did or None,
                 "query": q,
                 "responses": responses,
                 "verification": ver,
