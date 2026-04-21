@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>HOPEtensor — Governed AI Execution Infrastructure - Crafted by Erhan — The Master </title>
+  <title>HOPEtensor — Governed AI Execution Infrastructure</title>
   <style>
     :root {
       --bg: #0b0f1a;
@@ -22,50 +22,6 @@
       --radius: 22px;
       --max: 1240px;
     }
-
-
-.watermark {
-  position: fixed;
-  bottom: 16px;
-  right: 20px;
-  font-size: 0.8rem;
-  opacity: 0.18;
-  color: #4da3ff;
-  text-shadow: 0 0 8px rgba(77,163,255,0.4);
-  pointer-events: none;
-  letter-spacing: 0.08em;
-  font-weight: 600;
-}
-
-.logo-icon {
-  display: inline-block;
-  margin-right: 8px;
-  color: #4da3ff;
-  text-shadow: 0 0 10px rgba(77,163,255,0.6);
-  animation: pulse 2.5s infinite ease-in-out;
-}
-
-@keyframes pulse {
-  0% { opacity: 0.6; transform: scale(0.9); }
-  50% { opacity: 1; transform: scale(1.1); }
-  100% { opacity: 0.6; transform: scale(0.9); }
-}
-
-
-.brand:hover .logo-icon {
-  transform: rotate(180deg) scale(1.2);
-  transition: 0.4s ease;
-}
-
-.mini-card {
-  transition: transform 0.25s ease, border 0.25s ease;
-}
-
-.mini-card:hover {
-  transform: translateY(-6px);
-  border: 1px solid rgba(77,163,255,0.4);
-}
-
 
     * { box-sizing: border-box; }
     html { scroll-behavior: smooth; }
@@ -110,6 +66,27 @@
     }
 
     .brand span { color: var(--accent); }
+
+    .logo-icon {
+      display: inline-block;
+      width: 10px;
+      height: 10px;
+      margin-right: 10px;
+      border-radius: 50%;
+      background: radial-gradient(circle, #71e4ff 0%, #4da3ff 55%, #0ea5e9 100%);
+      box-shadow: 0 0 12px rgba(77,163,255,0.8);
+      transition: transform 0.25s ease, box-shadow 0.25s ease, opacity 0.25s ease;
+    }
+
+    .logo-live {
+      animation: logoPulse 1.2s ease-in-out infinite;
+    }
+
+    @keyframes logoPulse {
+      0% { transform: scale(0.92); opacity: 0.72; box-shadow: 0 0 8px rgba(77,163,255,0.45); }
+      50% { transform: scale(1.22); opacity: 1; box-shadow: 0 0 18px rgba(113,228,255,0.95); }
+      100% { transform: scale(0.92); opacity: 0.72; box-shadow: 0 0 8px rgba(77,163,255,0.45); }
+    }
 
     .nav-links {
       display: flex;
@@ -551,6 +528,59 @@
     .warn { color: var(--warn); }
     .danger { color: var(--danger); }
 
+    .node-visual-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 12px;
+      margin-top: 6px;
+    }
+
+    .node-visual-card {
+      padding: 14px 16px;
+      border-radius: 16px;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.08);
+      transition: border-color 0.25s ease, transform 0.25s ease, background 0.25s ease;
+      min-height: 120px;
+    }
+
+    .node-visual-card strong {
+      display: block;
+      margin-bottom: 8px;
+      font-size: 0.95rem;
+    }
+
+    .node-visual-card span {
+      display: block;
+      color: var(--muted);
+      line-height: 1.5;
+      font-size: 0.9rem;
+      white-space: pre-wrap;
+    }
+
+    .node-visual-card.active {
+      background: rgba(77,163,255,0.09);
+      border-color: rgba(77,163,255,0.34);
+      transform: translateY(-2px);
+    }
+
+    .node-visual-card.success {
+      background: rgba(110,231,183,0.08);
+      border-color: rgba(110,231,183,0.3);
+    }
+
+    .flow-mini {
+      margin-top: 12px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: center;
+    }
+
+    .flow-mini .badge {
+      min-height: 38px;
+    }
+
     .roadmap {
       display: grid;
       grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -617,31 +647,17 @@
       .nav-links { display: none; }
       .hero { padding-top: 42px; }
       .hero-metrics,
-      .form-row { grid-template-columns: 1fr; }
+      .form-row,
+      .node-visual-grid { grid-template-columns: 1fr; }
       .container { width: min(var(--max), calc(100% - 24px)); }
       h1 { line-height: 1.02; }
     }
   </style>
-
-<link rel="icon" type="image/svg+xml" href="hopetensor_favicon.svg">
-
-
 </head>
-
-
-
 <body>
-
-<div class="watermark">
-  Erhan · The Master
-</div>
-
   <nav class="nav">
     <div class="container nav-inner">
-     <div class="brand">
-  <span class="logo-icon">◉</span>
-  HOPE<span>tensor</span>
-</div>
+      <div class="brand"><span id="logoDot" class="logo-icon"></span>HOPE<span>tensor</span></div>
       <div class="nav-links">
         <a href="#problem">Problem</a>
         <a href="#architecture">Architecture</a>
@@ -656,7 +672,7 @@
   <header class="hero">
     <div class="container hero-grid">
       <div>
-        <div class="eyebrow">Governed AI Execution Infrastructure - Crafted by Erhan — The Master </div>
+        <div class="eyebrow">Governed AI Execution Infrastructure</div>
         <h1>
           Trust AI through <span class="gradient">governed execution</span>,
           not blind generation.
@@ -924,6 +940,34 @@
               <button class="btn btn-secondary" onclick="loadTrace()">View Trace</button>
             </div>
             <div class="trace-box" id="traceOutput">No trace loaded.</div>
+            <div class="result-block">
+              <span class="result-label">Runtime Visualization</span>
+              <div class="flow-mini" id="runtimeFlow">
+                <span class="badge">Request</span>
+                <span class="badge">Nodes</span>
+                <span class="badge">Verify</span>
+                <span class="badge">Vicdan</span>
+                <span class="badge">Trusted Output</span>
+              </div>
+              <div class="node-visual-grid">
+                <div class="node-visual-card" id="nodeLocal">
+                  <strong>Local Node</strong>
+                  <span>Idle</span>
+                </div>
+                <div class="node-visual-card" id="nodeExternal">
+                  <strong>External Node</strong>
+                  <span>Idle</span>
+                </div>
+                <div class="node-visual-card" id="nodeVerify">
+                  <strong>Verification</strong>
+                  <span>Waiting for comparison.</span>
+                </div>
+                <div class="node-visual-card" id="nodeVicdan">
+                  <strong>Vicdan</strong>
+                  <span>Waiting for final decision.</span>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -982,9 +1026,6 @@
   <footer>
     <div class="container">
       HOPEtensor — Governed Multi-Node Intelligence Execution Infrastructure
-	<span style="opacity:0.6; font-size:0.85rem;">
-  	Crafted by Erhan — The Master
-	</span>
     </div>
   </footer>
 
@@ -993,6 +1034,57 @@
       const el = document.getElementById("status");
       el.textContent = message;
       el.className = "status " + kind;
+    }
+
+    function setLogoLive(isLive) {
+      const dot = document.getElementById("logoDot");
+      if (!dot) return;
+      dot.classList.toggle("logo-live", !!isLive);
+    }
+
+    function resetNodeViz() {
+      const local = document.getElementById("nodeLocal");
+      const external = document.getElementById("nodeExternal");
+      const verify = document.getElementById("nodeVerify");
+      const vicdan = document.getElementById("nodeVicdan");
+
+      local.className = "node-visual-card";
+      external.className = "node-visual-card";
+      verify.className = "node-visual-card";
+      vicdan.className = "node-visual-card";
+
+      local.querySelector("span").textContent = "Idle";
+      external.querySelector("span").textContent = "Idle";
+      verify.querySelector("span").textContent = "Waiting for comparison.";
+      vicdan.querySelector("span").textContent = "Waiting for final decision.";
+    }
+
+    function updateNodeViz(data) {
+      const selected = Array.isArray(data.selected_nodes) ? data.selected_nodes : [];
+      const local = document.getElementById("nodeLocal");
+      const external = document.getElementById("nodeExternal");
+      const verify = document.getElementById("nodeVerify");
+      const vicdan = document.getElementById("nodeVicdan");
+
+      if (selected.some(n => String(n).includes("local"))) {
+        local.className = "node-visual-card active";
+        local.querySelector("span").textContent = "Selected and executed in this run.";
+      } else {
+        local.querySelector("span").textContent = "Not selected in this run.";
+      }
+
+      if (selected.some(n => String(n).includes("external"))) {
+        external.className = "node-visual-card active";
+        external.querySelector("span").textContent = "Selected and contributed to final orchestration.";
+      } else {
+        external.querySelector("span").textContent = "Not selected in this run.";
+      }
+
+      verify.className = "node-visual-card success";
+      verify.querySelector("span").textContent = data.verification_summary ?? "Verification completed.";
+
+      vicdan.className = "node-visual-card success";
+      vicdan.querySelector("span").textContent = `Decision: ${data.vicdan_status ?? "-"}`;
     }
 
     function loadSample() {
@@ -1030,6 +1122,8 @@
       }
 
       setStatus("Nodes reasoning in parallel...", "warn");
+      setLogoLive(true);
+      resetNodeViz();
       document.getElementById("answer").textContent = "Executing...";
       document.getElementById("confidence").textContent = "-";
       document.getElementById("vicdan").textContent = "-";
@@ -1038,6 +1132,10 @@
       document.getElementById("summary").textContent = "-";
       document.getElementById("traceOutput").textContent = "No trace loaded.";
       document.getElementById("confBar").style.width = "0%";
+      document.getElementById("nodeLocal").querySelector("span").textContent = "Running...";
+      document.getElementById("nodeExternal").querySelector("span").textContent = "Waiting for selection...";
+      document.getElementById("nodeVerify").querySelector("span").textContent = "Scoring candidates...";
+      document.getElementById("nodeVicdan").querySelector("span").textContent = "Preparing policy decision...";
 
       try {
         const response = await fetch("http://localhost:8000/v1/reason", {
@@ -1069,10 +1167,17 @@
         const conf = Math.round((data.confidence || 0) * 100);
         document.getElementById("confBar").style.width = conf + "%";
 
+        updateNodeViz(data);
+        setLogoLive(false);
         setStatus("Verification complete. Trusted output generated.", "ok");
       } catch (error) {
         document.getElementById("answer").textContent = "Demo failed. Make sure HOPEtensor is running on http://localhost:8000.";
         document.getElementById("summary").textContent = String(error);
+        document.getElementById("nodeLocal").querySelector("span").textContent = "Execution failed.";
+        document.getElementById("nodeExternal").querySelector("span").textContent = "Execution failed.";
+        document.getElementById("nodeVerify").querySelector("span").textContent = "Verification did not complete.";
+        document.getElementById("nodeVicdan").querySelector("span").textContent = "Vicdan decision unavailable.";
+        setLogoLive(false);
         setStatus("Execution failed. Check API runtime and CORS/network access.", "danger");
       }
     }

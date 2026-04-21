@@ -1,0 +1,5 @@
+$env:EXTERNAL_LLM_API_KEY="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"
+$env:ENABLE_EXTERNAL_NODE="true"
+$env:EXTERNAL_LLM_MODEL="gpt-4o-mini"
+$env:EXTERNAL_LLM_BASE_URL="https://api.openai.com/v1"
+
