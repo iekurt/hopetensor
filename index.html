@@ -1351,6 +1351,25 @@
     </div>
   </footer>
 
+  
+  <script>
+    const API_BASE = (() => {
+      const host = window.location.hostname;
+      const port = window.location.port;
+      if (host === "localhost" || host === "127.0.0.1") {
+        if (port === "3000" || port === "5500" || port === "8080") {
+          return "http://localhost:8000";
+        }
+        return "";
+      }
+      return "/api";
+    })();
+
+    function apiUrl(path) {
+      return `${API_BASE}${path}`;
+    }
+  </script>
+
   <script>
     function setStatus(message, kind = "") {
       const el = document.getElementById("status");
@@ -1440,7 +1459,7 @@
       try {
         const payload = JSON.parse(document.getElementById("planPayload").value);
 
-        const response = await fetch("/api/v1/plan", {
+        const response = await fetch(apiUrl("/v1/plan"), {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload)
@@ -1517,7 +1536,7 @@
       try {
         const payload = JSON.parse(document.getElementById("foodPayload").value);
 
-        const response = await fetch("/api/v1/hopeverse/food/plan", {
+        const response = await fetch(apiUrl("/v1/hopeverse/food/plan"), {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload)
@@ -1584,7 +1603,7 @@
       const status = document.getElementById("didStatus");
       try {
         status.textContent = "Creating DID...";
-        const response = await fetch("/api/v1/did/register", {
+        const response = await fetch(apiUrl("/v1/did/register"), {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -1610,7 +1629,7 @@
       try {
         const did = document.getElementById("didValue").value.trim() || localStorage.getItem("hopeverse_did") || "";
         status.textContent = "Opening DID session...";
-        const response = await fetch("/api/v1/did/login", {
+        const response = await fetch(apiUrl("/v1/did/login"), {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ did })
@@ -1633,7 +1652,7 @@
         const did = document.getElementById("didValue").value.trim() || localStorage.getItem("hopeverse_did") || "";
         if (!did) throw new Error("No DID available.");
         status.textContent = "Loading DID reputation...";
-        const response = await fetch(`/api/v1/did/${encodeURIComponent(did)}`);
+        const response = await fetch(apiUrl(`/v1/did/${encodeURIComponent(did)}`));
         if (!response.ok) throw new Error(await response.text());
         const data = await response.json();
         setDidView(data);
@@ -1737,7 +1756,7 @@
       status.textContent = "Loading HOPEchain...";
 
       try {
-        const res = await fetch(`/api/v1/chain/events?limit=${limit}`);
+        const res = await fetch(apiUrl(`/v1/chain/events?limit=${limit}`));
         if (!res.ok) {
           const text = await res.text();
           throw new Error(`Chain API error ${res.status}: ${text}`);
@@ -1800,7 +1819,7 @@
       document.getElementById("summary").textContent = "-";
 
       try {
-        const response = await fetch("/api/v1/reason", {
+        const response = await fetch(apiUrl("/v1/reason"), {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
