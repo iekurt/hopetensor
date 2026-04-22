@@ -3,21 +3,51 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import math
 import os
 import re
 import sqlite3
 import time
 import uuid
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Optional
 
 import httpx
 from fastapi import FastAPI, HTTPException
-from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
+
+
+# ============================================================
+# HOPEtensor v1 - Single-File Full Rewrite
+# ------------------------------------------------------------
+# Purpose:
+# - Governed multi-node reasoning engine
+# - Parallel node execution
+# - Verification scoring
+# - Vicdan safety / ethics layer
+# - Observer trace persistence
+# - Stable API surface
+#
+# Endpoints:
+# - GET  /health
+# - GET  /v1/nodes
+# - POST /v1/reason
+# - GET  /v1/traces/{trace_id}
+#
+# Notes:
+# - This file is intentionally self-contained for fast adoption.
+# - SQLite is used for persistence to avoid extra dependencies.
+# - One local node always works.
+# - External LLM node is optional via environment variables.
+# ============================================================
+
+
+# ============================================================
+# Configuration
+# ============================================================
 
 
 def env_bool(name: str, default: bool) -> bool:
@@ -55,11 +85,21 @@ class Settings:
 
 SETTINGS = Settings()
 
+
+# ============================================================
+# Logging
+# ============================================================
+
 logging.basicConfig(
     level=getattr(logging, SETTINGS.log_level.upper(), logging.INFO),
     format="%(asctime)s | %(levelname)s | %(name)s | %(message)s",
 )
 logger = logging.getLogger("hopetensor")
+
+
+# ============================================================
+# Utility helpers
+# ============================================================
 
 
 def utc_now() -> str:
@@ -88,6 +128,10 @@ def summarize_prompt(prompt: str, max_len: int = 180) -> str:
     return text if len(text) <= max_len else text[: max_len - 3] + "..."
 
 
+# ============================================================
+# API Models
+# ============================================================
+
 class ReasonRequest(BaseModel):
     prompt: str = Field(..., min_length=1)
     context: Optional[dict[str, Any]] = None
@@ -115,7 +159,6 @@ class TraceResponse(BaseModel):
     final_output: str
     total_duration_ms: int
     created_at: str
-    candidates: list[dict[str, Any]]
 
 
 class NodeStatusResponse(BaseModel):
@@ -126,6 +169,10 @@ class NodeStatusResponse(BaseModel):
     trust_score: float
     reputation_score: float
 
+
+# ============================================================
+# Domain Models
+# ============================================================
 
 class TaskContext(BaseModel):
     task_id: str
@@ -179,6 +226,10 @@ class FinalResponse(BaseModel):
     trace_id: str
 
 
+# ============================================================
+# Database Layer
+# ============================================================
+
 class Database:
     def __init__(self, db_path: str) -> None:
         self.db_path = db_path
@@ -194,7 +245,7 @@ class Database:
         conn = self._connect()
         try:
             conn.executescript(
-                '''
+                """
                 CREATE TABLE IF NOT EXISTS nodes (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     node_id TEXT UNIQUE NOT NULL,
@@ -272,7 +323,7 @@ class Database:
                     total_duration_ms INTEGER NOT NULL,
                     created_at TEXT NOT NULL
                 );
-                '''
+                """
             )
             conn.commit()
         finally:
@@ -282,7 +333,7 @@ class Database:
         conn = self._connect()
         try:
             conn.execute(
-                '''
+                """
                 INSERT INTO nodes (
                     node_id, node_type, capabilities_json, enabled,
                     trust_score, reputation_score, cost_weight,
@@ -297,7 +348,7 @@ class Database:
                     cost_weight=excluded.cost_weight,
                     latency_weight=excluded.latency_weight,
                     policy_tags_json=excluded.policy_tags_json
-                ''',
+                """,
                 (
                     node.node_id,
                     node.node_type,
@@ -315,16 +366,24 @@ class Database:
         finally:
             conn.close()
 
+    def list_nodes(self) -> list[dict[str, Any]]:
+        conn = self._connect()
+        try:
+            rows = conn.execute("SELECT * FROM nodes ORDER BY node_id ASC").fetchall()
+            return [dict(row) for row in rows]
+        finally:
+            conn.close()
+
     def save_task(self, task: TaskContext) -> None:
         conn = self._connect()
         try:
             conn.execute(
-                '''
+                """
                 INSERT OR REPLACE INTO tasks (
                     task_id, trace_id, requester_id, task_type, policy_profile,
                     required_confidence, prompt, context_json, metadata_json, created_at
                 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                ''',
+                """,
                 (
                     task.task_id,
                     task.trace_id,
@@ -342,18 +401,18 @@ class Database:
         finally:
             conn.close()
 
-    def save_candidates(self, candidates: list["CandidateAnswer"]) -> None:
+    def save_candidates(self, candidates: list[CandidateAnswer]) -> None:
         conn = self._connect()
         try:
             for c in candidates:
                 conn.execute(
-                    '''
+                    """
                     INSERT OR REPLACE INTO candidate_answers (
                         candidate_id, task_id, node_id, output_text,
                         confidence_self_reported, evidence_refs_json,
                         duration_ms, error_text, created_at
                     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-                    ''',
+                    """,
                     (
                         c.candidate_id,
                         c.task_id,
@@ -370,18 +429,18 @@ class Database:
         finally:
             conn.close()
 
-    def save_verification(self, vr: "VerificationResult") -> None:
+    def save_verification(self, vr: VerificationResult) -> None:
         conn = self._connect()
         try:
             conn.execute(
-                '''
+                """
                 INSERT OR REPLACE INTO verification_results (
                     task_id, agreement_score, evidence_score,
                     contradiction_flags_json, confidence_score,
                     candidate_rankings_json, selected_candidate_id,
                     verification_summary, created_at
                 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-                ''',
+                """,
                 (
                     vr.task_id,
                     vr.agreement_score,
@@ -398,16 +457,16 @@ class Database:
         finally:
             conn.close()
 
-    def save_vicdan(self, vc: "VicdanResult") -> None:
+    def save_vicdan(self, vc: VicdanResult) -> None:
         conn = self._connect()
         try:
             conn.execute(
-                '''
+                """
                 INSERT OR REPLACE INTO vicdan_results (
                     task_id, decision, risk_scores_json, rationale,
                     required_modification, created_at
                 ) VALUES (?, ?, ?, ?, ?, ?)
-                ''',
+                """,
                 (
                     vc.task_id,
                     vc.decision,
@@ -436,13 +495,13 @@ class Database:
         conn = self._connect()
         try:
             conn.execute(
-                '''
+                """
                 INSERT OR REPLACE INTO traces (
                     trace_id, task_id, request_summary, selected_nodes_json,
                     candidate_ids_json, verification_summary, vicdan_status,
                     final_output, total_duration_ms, created_at
                 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                ''',
+                """,
                 (
                     trace_id,
                     task_id,
@@ -471,36 +530,13 @@ class Database:
         finally:
             conn.close()
 
-    def get_candidates_by_task(self, task_id: str) -> list[dict[str, Any]]:
-        conn = self._connect()
-        try:
-            rows = conn.execute(
-                '''
-                SELECT candidate_id, task_id, node_id, output_text,
-                       confidence_self_reported, evidence_refs_json,
-                       duration_ms, error_text, created_at
-                FROM candidate_answers
-                WHERE task_id = ?
-                ORDER BY id ASC
-                ''',
-                (task_id,),
-            ).fetchall()
-
-            results: list[dict[str, Any]] = []
-            for row in rows:
-                item = dict(row)
-                item["evidence_refs"] = json.loads(item["evidence_refs_json"] or "[]")
-                item.pop("evidence_refs_json", None)
-                item["output"] = item.pop("output_text", None)
-                item["error"] = item.pop("error_text", None)
-                results.append(item)
-            return results
-        finally:
-            conn.close()
-
 
 DB = Database(SETTINGS.db_path)
 
+
+# ============================================================
+# Task Classification
+# ============================================================
 
 class TaskClassifier:
     @staticmethod
@@ -516,6 +552,10 @@ class TaskClassifier:
             return "retrieval_recommended"
         return "general"
 
+
+# ============================================================
+# Node System
+# ============================================================
 
 class BaseNode(ABC):
     node_id: str
@@ -548,6 +588,7 @@ class LocalNode(BaseNode):
     async def run(self, task: TaskContext) -> CandidateAnswer:
         start = time.perf_counter()
         try:
+            # Deterministic local fallback response.
             prompt = normalize_whitespace(task.prompt)
             short = summarize_prompt(prompt, 500)
             if task.task_type == "technical":
@@ -572,7 +613,6 @@ class LocalNode(BaseNode):
                     "Local node analysis: this request can be handled through federated reasoning with "
                     "verification and policy checks. Prompt summary: " + short
                 )
-
             return CandidateAnswer(
                 candidate_id=generate_id("cand"),
                 task_id=task.task_id,
@@ -583,7 +623,7 @@ class LocalNode(BaseNode):
                 duration_ms=int((time.perf_counter() - start) * 1000),
                 error=None,
             )
-        except Exception as exc:
+        except Exception as exc:  # pragma: no cover
             return CandidateAnswer(
                 candidate_id=generate_id("cand"),
                 task_id=task.task_id,
@@ -606,96 +646,60 @@ class ExternalLLMNode(BaseNode):
         self.cost_weight = 0.75
         self.latency_weight = 0.60
         self.policy_tags = ["default", "strict"]
-        self.enabled = True
+        self.enabled = SETTINGS.enable_external_node and bool(SETTINGS.external_llm_api_key)
 
     async def run(self, task: TaskContext) -> CandidateAnswer:
         start = time.perf_counter()
+        if not self.enabled:
+            return CandidateAnswer(
+                candidate_id=generate_id("cand"),
+                task_id=task.task_id,
+                node_id=self.node_id,
+                output=None,
+                confidence_self_reported=None,
+                evidence_refs=[],
+                duration_ms=int((time.perf_counter() - start) * 1000),
+                error="external_node_disabled",
+            )
 
-        # If a real API key exists, use real external inference.
-        if SETTINGS.external_llm_api_key:
-            headers = {
-                "Authorization": f"Bearer {SETTINGS.external_llm_api_key}",
-                "Content-Type": "application/json",
-            }
-            payload = {
-                "model": SETTINGS.external_llm_model,
-                "messages": [
-                    {
-                        "role": "system",
-                        "content": (
-                            "You are a reasoning node inside HOPEtensor. "
-                            "Produce a concise, careful answer. State assumptions when needed."
-                        ),
-                    },
-                    {"role": "user", "content": task.prompt},
-                ],
-                "temperature": 0.2,
-            }
+        headers = {
+            "Authorization": f"Bearer {SETTINGS.external_llm_api_key}",
+            "Content-Type": "application/json",
+        }
+        payload = {
+            "model": SETTINGS.external_llm_model,
+            "messages": [
+                {
+                    "role": "system",
+                    "content": (
+                        "You are a reasoning node inside HOPEtensor. "
+                        "Produce a concise, careful answer. State assumptions when needed."
+                    ),
+                },
+                {"role": "user", "content": task.prompt},
+            ],
+            "temperature": 0.2,
+        }
 
-            try:
-                timeout = SETTINGS.node_timeout_ms / 1000
-                async with httpx.AsyncClient(timeout=timeout) as client:
-                    response = await client.post(
-                        f"{SETTINGS.external_llm_base_url.rstrip('/')}/chat/completions",
-                        headers=headers,
-                        json=payload,
-                    )
-                    response.raise_for_status()
-                    data = response.json()
-                    content = data["choices"][0]["message"]["content"]
-
-                return CandidateAnswer(
-                    candidate_id=generate_id("cand"),
-                    task_id=task.task_id,
-                    node_id=self.node_id,
-                    output=normalize_whitespace(content),
-                    confidence_self_reported=0.78,
-                    evidence_refs=[],
-                    duration_ms=int((time.perf_counter() - start) * 1000),
-                    error=None,
-                )
-            except Exception as exc:
-                return CandidateAnswer(
-                    candidate_id=generate_id("cand"),
-                    task_id=task.task_id,
-                    node_id=self.node_id,
-                    output=None,
-                    confidence_self_reported=None,
-                    evidence_refs=[],
-                    duration_ms=int((time.perf_counter() - start) * 1000),
-                    error=f"external_node_error: {exc}",
-                )
-
-        # No API key: use guaranteed mock external reasoning so multi-node demo still works.
         try:
-            prompt = normalize_whitespace(task.prompt).lower()
-
-            if "hallucination" in prompt:
-                output = (
-                    "External node analysis: single-model systems hallucinate because generation is probabilistic, "
-                    "grounding is incomplete, and confidence is often implicit rather than explicit. "
-                    "Governed multi-node execution reduces risk by comparing reasoning paths, scoring agreement, "
-                    "and applying final policy control before release."
+            timeout = SETTINGS.node_timeout_ms / 1000
+            async with httpx.AsyncClient(timeout=timeout) as client:
+                response = await client.post(
+                    f"{SETTINGS.external_llm_base_url.rstrip('/')}/chat/completions",
+                    headers=headers,
+                    json=payload,
                 )
-            elif task.task_type == "technical":
-                output = (
-                    "External node analysis: this technical request benefits from a second reasoning path. "
-                    "A robust production pattern is independent node execution, verification scoring, "
-                    "and release only after consistency checks."
-                )
-            else:
-                output = (
-                    "External node analysis: this request benefits from structured multi-node reasoning. "
-                    "Independent candidate generation improves trust when combined with verification and policy review."
-                )
+                response.raise_for_status()
+                data = response.json()
+                content = data["choices"][0]["message"]["content"]
 
             return CandidateAnswer(
                 candidate_id=generate_id("cand"),
                 task_id=task.task_id,
                 node_id=self.node_id,
-                output=output,
+                output=normalize_whitespace(content),
                 confidence_self_reported=0.78,
-                evidence_refs=["synthetic_reasoning"],
+                evidence_refs=[],
                 duration_ms=int((time.perf_counter() - start) * 1000),
                 error=None,
             )
@@ -727,6 +731,7 @@ class RetrievalNode(BaseNode):
     async def run(self, task: TaskContext) -> CandidateAnswer:
         start = time.perf_counter()
         try:
+            # Placeholder retrieval behavior for v1 single-file build.
             output = (
                 "Retrieval node placeholder: retrieval layer is available for future evidence-backed expansion. "
                 "Current v1 single-file build returns a retrieval recommendation summary only."
@@ -741,7 +746,7 @@ class RetrievalNode(BaseNode):
                 duration_ms=int((time.perf_counter() - start) * 1000),
                 error=None,
             )
-        except Exception as exc:
+        except Exception as exc:  # pragma: no cover
             return CandidateAnswer(
                 candidate_id=generate_id("cand"),
                 task_id=task.task_id,
@@ -770,7 +775,32 @@ class NodeRegistry:
 
     def select_for_task(self, task_type: str, policy_profile: str, mode: Optional[str] = None) -> list[BaseNode]:
         nodes = self.list_enabled()
-        return nodes
+        selected: list[BaseNode] = []
+
+        # local node is always desirable when available for independence.
+        local = [n for n in nodes if n.node_type == "local"]
+        external = [n for n in nodes if n.node_type == "external_llm"]
+        retrieval = [n for n in nodes if n.node_type == "retrieval"]
+
+        if local:
+            selected.append(local[0])
+        if external:
+            selected.append(external[0])
+
+        if task_type == "retrieval_recommended" and retrieval:
+            selected.append(retrieval[0])
+        if mode == "strict" and retrieval and retrieval[0] not in selected:
+            selected.append(retrieval[0])
+
+        # Strict mode should try to satisfy min node count.
+        if mode == "strict" and len(selected) < SETTINGS.strict_mode_min_nodes:
+            for node in nodes:
+                if node not in selected:
+                    selected.append(node)
+                if len(selected) >= SETTINGS.strict_mode_min_nodes:
+                    break
+
+        return selected
 
 
 NODE_REGISTRY = NodeRegistry()
@@ -780,6 +810,10 @@ NODE_REGISTRY.register(ExternalLLMNode())
 if SETTINGS.enable_retrieval_node:
     NODE_REGISTRY.register(RetrievalNode())
 
+
+# ============================================================
+# Verification Engine
+# ============================================================
 
 class VerificationEngine:
     @staticmethod
@@ -913,6 +947,10 @@ class VerificationEngine:
         )
 
 
+# ============================================================
+# Vicdan Engine
+# ============================================================
+
 class VicdanEngine:
     HARD_BLOCK_PATTERNS = [
         r"\bbuild a bomb\b",
@@ -1024,8 +1062,14 @@ class VicdanEngine:
                 "Only a guarded, high-level response is returned.\n\n"
                 + selected_output
             )
-        return "Vicdan rejection: the system cannot provide the requested output because it violates the active safety policy."
+        return (
+            "Vicdan rejection: the system cannot provide the requested output because it violates the active safety policy."
+        )
 
+
+# ============================================================
+# Observer
+# ============================================================
 
 class Observer:
     @staticmethod
@@ -1053,6 +1097,10 @@ class Observer:
             total_duration_ms=total_duration_ms,
         )
 
+
+# ============================================================
+# Orchestrator
+# ============================================================
 
 class Orchestrator:
     def __init__(self, registry: NodeRegistry) -> None:
@@ -1086,7 +1134,6 @@ class Orchestrator:
         logger.info("trace_id=%s event=nodes_selected nodes=%s", trace_id, [n.node_id for n in selected_nodes])
 
         timeout = SETTINGS.node_timeout_ms / 1000
-
         async def _safe_run(node: BaseNode) -> CandidateAnswer:
             try:
                 return await asyncio.wait_for(node.run(task), timeout=timeout)
@@ -1114,7 +1161,9 @@ class Orchestrator:
                 rationale="No valid candidate selected by verification.",
                 required_modification="Return system-safe failure message.",
             )
-            final_output = "HOPEtensor could not produce a sufficiently valid response because all candidate paths failed verification."
+            final_output = (
+                "HOPEtensor could not produce a sufficiently valid response because all candidate paths failed verification."
+            )
             total_duration_ms = int((time.perf_counter() - started) * 1000)
             Observer.persist(task, candidates, verification, vicdan, final_output, total_duration_ms)
             return FinalResponse(
@@ -1126,8 +1175,12 @@ class Orchestrator:
                 trace_id=trace_id,
             )
 
-        selected_candidate = next((c for c in valid_candidates if c.candidate_id == verification.selected_candidate_id), None)
+        selected_candidate = next(
+            (c for c in valid_candidates if c.candidate_id == verification.selected_candidate_id),
+            None,
+        )
         if selected_candidate is None:
+            # Defensive fallback.
             selected_candidate = valid_candidates[0] if valid_candidates else None
 
         if selected_candidate is None:
@@ -1165,7 +1218,14 @@ class Orchestrator:
 
 ORCHESTRATOR = Orchestrator(NODE_REGISTRY)
 
+
+# ============================================================
+# FastAPI App
+# ============================================================
+
 app = FastAPI(title=SETTINGS.app_name, version=SETTINGS.app_version)
+
+from fastapi.middleware.cors import CORSMiddleware
 
 app.add_middleware(
     CORSMiddleware,
@@ -1197,17 +1257,19 @@ async def health() -> dict[str, Any]:
 
 @app.get("/v1/nodes", response_model=list[NodeStatusResponse])
 async def list_nodes() -> list[NodeStatusResponse]:
-    return [
-        NodeStatusResponse(
-            node_id=node.node_id,
-            node_type=node.node_type,
-            capabilities=node.capabilities,
-            enabled=node.enabled,
-            trust_score=node.trust_score,
-            reputation_score=node.reputation_score,
+    results: list[NodeStatusResponse] = []
+    for node in NODE_REGISTRY.list_enabled():
+        results.append(
+            NodeStatusResponse(
+                node_id=node.node_id,
+                node_type=node.node_type,
+                capabilities=node.capabilities,
+                enabled=node.enabled,
+                trust_score=node.trust_score,
+                reputation_score=node.reputation_score,
+            )
         )
-        for node in NODE_REGISTRY.list_enabled()
-    ]
+    return results
 
 
 @app.post("/v1/reason", response_model=ReasonResponse)
@@ -1222,8 +1284,6 @@ async def get_trace(trace_id: str) -> TraceResponse:
     if not trace:
         raise HTTPException(status_code=404, detail="Trace not found")
 
-    candidates = DB.get_candidates_by_task(trace["task_id"])
-
     return TraceResponse(
         trace_id=trace["trace_id"],
         task_id=trace["task_id"],
@@ -1233,9 +1293,12 @@ async def get_trace(trace_id: str) -> TraceResponse:
         final_output=trace["final_output"],
         total_duration_ms=trace["total_duration_ms"],
         created_at=trace["created_at"],
-        candidates=candidates,
     )
 
+
+# ============================================================
+# Local runner
+# ============================================================
 
 if __name__ == "__main__":
     import uvicorn

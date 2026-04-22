@@ -479,6 +479,30 @@
     .warn { color: var(--warn); }
     .danger { color: var(--danger); }
 
+    
+    .plan-wrap {
+      display: grid;
+      grid-template-columns: 0.95fr 1.05fr;
+      gap: 20px;
+      align-items: start;
+    }
+
+    .plan-json {
+      min-height: 220px;
+      font-family: Consolas, monospace;
+      font-size: 0.9rem;
+    }
+
+    .plan-summary {
+      padding: 14px 16px;
+      border-radius: 14px;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.08);
+      color: white;
+      line-height: 1.6;
+      white-space: pre-wrap;
+    }
+
     .roadmap {
       display: grid;
       grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -526,6 +550,7 @@
     @media (max-width: 1100px) {
       .hero-grid,
       .demo-wrap,
+      .plan-wrap,
       .problem-row,
       .grid-3,
       .grid-4,
@@ -559,6 +584,7 @@
         <a href="#problem">Problem</a>
         <a href="#architecture">Architecture</a>
         <a href="#demo">Live Demo</a>
+        <a href="#plan">HOPEcore Plan</a>
         <a href="#roadmap">Roadmap</a>
         <a href="#contact">Contact</a>
       </div>
@@ -833,6 +859,109 @@
     </div>
   </section>
 
+
+  <section id="plan">
+    <div class="container">
+      <div class="section-head">
+        <h2>HOPEcore planning demo</h2>
+        <p>
+          Run civilization-priority planning with goals, resource constraints, and ethics weights.
+          This calls <code>/v1/plan</code> and returns ranked goals, actions, confidence, and Vicdan alignment.
+        </p>
+      </div>
+      <div class="plan-wrap">
+        <div class="demo-panel">
+          <h3>Run HOPEcore Plan</h3>
+          <label for="planPayload">Planner Payload</label>
+          <textarea id="planPayload" class="plan-json">{
+  "goals": [
+    {
+      "id": "goal_food_001",
+      "name": "Child Nutrition Access",
+      "category": "food",
+      "description": "Reduce child hunger through targeted nutrition routing and local support.",
+      "urgency": 0.95,
+      "impact_score": 0.96,
+      "ethics_weight": 1.0,
+      "feasibility_score": 0.82,
+      "resource_efficiency": 0.76,
+      "time_sensitivity": 0.95,
+      "horizon": "immediate",
+      "beneficiaries": 250000,
+      "dependencies": ["local_warehousing", "school_networks"],
+      "risks": []
+    },
+    {
+      "id": "goal_ai_001",
+      "name": "Trusted AI Public Service Layer",
+      "category": "ai",
+      "description": "Deploy traceable and governed AI assistance for public-impact workflows.",
+      "urgency": 0.72,
+      "impact_score": 0.84,
+      "ethics_weight": 0.93,
+      "feasibility_score": 0.86,
+      "resource_efficiency": 0.83,
+      "time_sensitivity": 0.66,
+      "horizon": "short",
+      "beneficiaries": 300000,
+      "dependencies": ["policy_framework", "audit_logging"],
+      "risks": []
+    }
+  ],
+  "resources": {
+    "budget": 500000,
+    "people": 40,
+    "energy_capacity": 70,
+    "infrastructure_readiness": 0.78,
+    "data_readiness": 0.74,
+    "local_partnership_strength": 0.81,
+    "time_budget_months": 12
+  },
+  "ethics": {
+    "protect_children_weight": 1.0,
+    "reduce_suffering_weight": 1.0,
+    "dignity_weight": 0.95,
+    "sustainability_weight": 0.9,
+    "fairness_weight": 0.92,
+    "long_term_weight": 0.88
+  },
+  "constraints": {
+    "forbidden_categories": [],
+    "max_parallel_goals": 3,
+    "min_ethics_threshold": 0.55,
+    "prefer_fast_impact": true,
+    "require_local_readiness": false
+  }
+}</textarea>
+          <div class="demo-actions">
+            <button class="btn btn-primary" onclick="runPlan()">Run HOPEcore Plan</button>
+            <button class="btn btn-secondary" onclick="loadPlanSample()">Load Default Plan</button>
+          </div>
+          <div class="status" id="planStatus">Waiting for planner execution.</div>
+        </div>
+
+        <div class="demo-panel">
+          <h3>Planner Output</h3>
+          <div class="result">
+            <div class="result-block">
+              <span class="result-label">Planner Summary</span>
+              <div class="result-value" id="planSummary">No planning output yet.</div>
+            </div>
+            <div class="result-block">
+              <span class="result-label">Top Decisions</span>
+              <div class="result-value" id="planDecisions">-</div>
+            </div>
+            <div class="result-block">
+              <span class="result-label">Full Planner JSON</span>
+              <div class="trace-box" id="planOutput">-</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+
   <section id="roadmap">
     <div class="container">
       <div class="section-head">
@@ -898,6 +1027,118 @@
     function loadSample() {
       document.getElementById("prompt").value = "Explain why single-model AI systems hallucinate and how governed multi-node execution reduces risk in production environments.";
     }
+
+
+    function loadPlanSample() {
+      document.getElementById("planPayload").value = `{
+  "goals": [
+    {
+      "id": "goal_food_001",
+      "name": "Child Nutrition Access",
+      "category": "food",
+      "description": "Reduce child hunger through targeted nutrition routing and local support.",
+      "urgency": 0.95,
+      "impact_score": 0.96,
+      "ethics_weight": 1.0,
+      "feasibility_score": 0.82,
+      "resource_efficiency": 0.76,
+      "time_sensitivity": 0.95,
+      "horizon": "immediate",
+      "beneficiaries": 250000,
+      "dependencies": ["local_warehousing", "school_networks"],
+      "risks": []
+    },
+    {
+      "id": "goal_ai_001",
+      "name": "Trusted AI Public Service Layer",
+      "category": "ai",
+      "description": "Deploy traceable and governed AI assistance for public-impact workflows.",
+      "urgency": 0.72,
+      "impact_score": 0.84,
+      "ethics_weight": 0.93,
+      "feasibility_score": 0.86,
+      "resource_efficiency": 0.83,
+      "time_sensitivity": 0.66,
+      "horizon": "short",
+      "beneficiaries": 300000,
+      "dependencies": ["policy_framework", "audit_logging"],
+      "risks": []
+    }
+  ],
+  "resources": {
+    "budget": 500000,
+    "people": 40,
+    "energy_capacity": 70,
+    "infrastructure_readiness": 0.78,
+    "data_readiness": 0.74,
+    "local_partnership_strength": 0.81,
+    "time_budget_months": 12
+  },
+  "ethics": {
+    "protect_children_weight": 1.0,
+    "reduce_suffering_weight": 1.0,
+    "dignity_weight": 0.95,
+    "sustainability_weight": 0.9,
+    "fairness_weight": 0.92,
+    "long_term_weight": 0.88
+  },
+  "constraints": {
+    "forbidden_categories": [],
+    "max_parallel_goals": 3,
+    "min_ethics_threshold": 0.55,
+    "prefer_fast_impact": true,
+    "require_local_readiness": false
+  }
+}`;
+    }
+
+    async function runPlan() {
+      const status = document.getElementById("planStatus");
+      const summary = document.getElementById("planSummary");
+      const decisions = document.getElementById("planDecisions");
+      const output = document.getElementById("planOutput");
+
+      status.textContent = "Running HOPEcore planning...";
+      summary.textContent = "Planning...";
+      decisions.textContent = "-";
+      output.textContent = "-";
+
+      try {
+        const payload = JSON.parse(document.getElementById("planPayload").value);
+
+        const response = await fetch("http://localhost:8000/v1/plan", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        });
+
+        if (!response.ok) {
+          const text = await response.text();
+          throw new Error(`Plan API error ${response.status}: ${text}`);
+        }
+
+        const data = await response.json();
+
+        summary.textContent = data.planner_summary ?? "-";
+        decisions.innerHTML = Array.isArray(data.decisions)
+          ? data.decisions.map(d => `
+              <div style="margin-bottom:14px;">
+                <strong>#${d.rank} ${d.goal_name}</strong><br>
+                Vicdan: ${d.vicdan_alignment} · Confidence: ${d.confidence}<br>
+                Impact: ${d.expected_impact}<br>
+                Actions: ${(d.recommended_actions || []).join(" • ")}
+              </div>
+            `).join("")
+          : "-";
+        output.textContent = JSON.stringify(data, null, 2);
+        status.textContent = "Planner execution completed.";
+      } catch (error) {
+        summary.textContent = "Planning failed.";
+        output.textContent = String(error);
+        status.textContent = "Planner execution failed.";
+      }
+    }
+
 
     async function runDemo() {
       const prompt = document.getElementById("prompt").value.trim();

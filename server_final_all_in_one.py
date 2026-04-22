@@ -9,12 +9,13 @@ import sqlite3
 import time
 import uuid
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any, Literal, Optional
 
 import httpx
+from hopechain_did import HOPEChain
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
@@ -37,7 +38,7 @@ class Settings:
     db_path: str = os.getenv("HOPETENSOR_DB_PATH", "hopetensor_v1.db")
 
     enable_local_node: bool = env_bool("ENABLE_LOCAL_NODE", True)
-    enable_external_node: bool = env_bool("ENABLE_EXTERNAL_NODE", False)
+    enable_external_node: bool = env_bool("ENABLE_EXTERNAL_NODE", True)
     enable_retrieval_node: bool = env_bool("ENABLE_RETRIEVAL_NODE", False)
 
     default_policy_profile: str = os.getenv("DEFAULT_POLICY_PROFILE", "default")
@@ -60,6 +61,7 @@ logging.basicConfig(
     format="%(asctime)s | %(levelname)s | %(name)s | %(message)s",
 )
 logger = logging.getLogger("hopetensor")
+HOPECHAIN = HOPEChain("hopechain_did.db")
 
 
 def utc_now() -> str:
@@ -194,7 +196,7 @@ class Database:
         conn = self._connect()
         try:
             conn.executescript(
-                '''
+                """
                 CREATE TABLE IF NOT EXISTS nodes (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     node_id TEXT UNIQUE NOT NULL,
@@ -272,7 +274,7 @@ class Database:
                     total_duration_ms INTEGER NOT NULL,
                     created_at TEXT NOT NULL
                 );
-                '''
+                """
             )
             conn.commit()
         finally:
@@ -282,7 +284,7 @@ class Database:
         conn = self._connect()
         try:
             conn.execute(
-                '''
+                """
                 INSERT INTO nodes (
                     node_id, node_type, capabilities_json, enabled,
                     trust_score, reputation_score, cost_weight,
@@ -297,7 +299,7 @@ class Database:
                     cost_weight=excluded.cost_weight,
                     latency_weight=excluded.latency_weight,
                     policy_tags_json=excluded.policy_tags_json
-                ''',
+                """,
                 (
                     node.node_id,
                     node.node_type,
@@ -319,12 +321,12 @@ class Database:
         conn = self._connect()
         try:
             conn.execute(
-                '''
+                """
                 INSERT OR REPLACE INTO tasks (
                     task_id, trace_id, requester_id, task_type, policy_profile,
                     required_confidence, prompt, context_json, metadata_json, created_at
                 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                ''',
+                """,
                 (
                     task.task_id,
                     task.trace_id,
@@ -347,13 +349,13 @@ class Database:
         try:
             for c in candidates:
                 conn.execute(
-                    '''
+                    """
                     INSERT OR REPLACE INTO candidate_answers (
                         candidate_id, task_id, node_id, output_text,
                         confidence_self_reported, evidence_refs_json,
                         duration_ms, error_text, created_at
                     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-                    ''',
+                    """,
                     (
                         c.candidate_id,
                         c.task_id,
@@ -374,14 +376,14 @@ class Database:
         conn = self._connect()
         try:
             conn.execute(
-                '''
+                """
                 INSERT OR REPLACE INTO verification_results (
                     task_id, agreement_score, evidence_score,
                     contradiction_flags_json, confidence_score,
                     candidate_rankings_json, selected_candidate_id,
                     verification_summary, created_at
                 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-                ''',
+                """,
                 (
                     vr.task_id,
                     vr.agreement_score,
@@ -402,12 +404,12 @@ class Database:
         conn = self._connect()
         try:
             conn.execute(
-                '''
+                """
                 INSERT OR REPLACE INTO vicdan_results (
                     task_id, decision, risk_scores_json, rationale,
                     required_modification, created_at
                 ) VALUES (?, ?, ?, ?, ?, ?)
-                ''',
+                """,
                 (
                     vc.task_id,
                     vc.decision,
@@ -436,13 +438,13 @@ class Database:
         conn = self._connect()
         try:
             conn.execute(
-                '''
+                """
                 INSERT OR REPLACE INTO traces (
                     trace_id, task_id, request_summary, selected_nodes_json,
                     candidate_ids_json, verification_summary, vicdan_status,
                     final_output, total_duration_ms, created_at
                 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                ''',
+                """,
                 (
                     trace_id,
                     task_id,
@@ -463,10 +465,7 @@ class Database:
     def get_trace(self, trace_id: str) -> Optional[dict[str, Any]]:
         conn = self._connect()
         try:
-            row = conn.execute(
-                "SELECT * FROM traces WHERE trace_id = ?",
-                (trace_id,),
-            ).fetchone()
+            row = conn.execute("SELECT * FROM traces WHERE trace_id = ?", (trace_id,)).fetchone()
             return dict(row) if row else None
         finally:
             conn.close()
@@ -475,14 +474,14 @@ class Database:
         conn = self._connect()
         try:
             rows = conn.execute(
-                '''
+                """
                 SELECT candidate_id, task_id, node_id, output_text,
                        confidence_self_reported, evidence_refs_json,
                        duration_ms, error_text, created_at
                 FROM candidate_answers
                 WHERE task_id = ?
                 ORDER BY id ASC
-                ''',
+                """,
                 (task_id,),
             ).fetchall()
 
@@ -611,7 +610,6 @@ class ExternalLLMNode(BaseNode):
     async def run(self, task: TaskContext) -> CandidateAnswer:
         start = time.perf_counter()
 
-        # If a real API key exists, use real external inference.
         if SETTINGS.external_llm_api_key:
             headers = {
                 "Authorization": f"Bearer {SETTINGS.external_llm_api_key}",
@@ -666,10 +664,8 @@ class ExternalLLMNode(BaseNode):
                     error=f"external_node_error: {exc}",
                 )
 
-        # No API key: use guaranteed mock external reasoning so multi-node demo still works.
         try:
             prompt = normalize_whitespace(task.prompt).lower()
-
             if "hallucination" in prompt:
                 output = (
                     "External node analysis: single-model systems hallucinate because generation is probabilistic, "
@@ -769,8 +765,7 @@ class NodeRegistry:
         return [node for node in self._nodes.values() if node.enabled]
 
     def select_for_task(self, task_type: str, policy_profile: str, mode: Optional[str] = None) -> list[BaseNode]:
-        nodes = self.list_enabled()
-        return nodes
+        return self.list_enabled()
 
 
 NODE_REGISTRY = NodeRegistry()
@@ -808,15 +803,9 @@ class VerificationEngine:
         valid = [c for c in candidates if c.output and not c.error]
         if len(valid) < 2:
             return []
-
         flags: list[str] = []
         texts = [c.output.lower() for c in valid if c.output]
-        contradiction_markers = [
-            ("must", "must not"),
-            ("is", "is not"),
-            ("can", "cannot"),
-            ("allowed", "not allowed"),
-        ]
+        contradiction_markers = [("must", "must not"), ("is", "is not"), ("can", "cannot"), ("allowed", "not allowed")]
         joined = " || ".join(texts)
         for pos, neg in contradiction_markers:
             if pos in joined and neg in joined:
@@ -851,13 +840,7 @@ class VerificationEngine:
         return clamp((node.trust_score + node.reputation_score) / 2)
 
     @classmethod
-    def calculate_confidence(
-        cls,
-        agreement_score: float,
-        evidence_score: float,
-        reputation_weight: float,
-        structural_validity: float,
-    ) -> float:
+    def calculate_confidence(cls, agreement_score: float, evidence_score: float, reputation_weight: float, structural_validity: float) -> float:
         raw = agreement_score * 0.35 + evidence_score * 0.20 + reputation_weight * 0.20 + structural_validity * 0.25
         return clamp(raw)
 
@@ -884,12 +867,7 @@ class VerificationEngine:
         for candidate in valid:
             structural_validity = cls.compute_structural_validity(candidate)
             reputation_weight = cls.candidate_weight(candidate)
-            confidence = cls.calculate_confidence(
-                agreement_score=agreement_score,
-                evidence_score=evidence_score,
-                reputation_weight=reputation_weight,
-                structural_validity=structural_validity,
-            )
+            confidence = cls.calculate_confidence(agreement_score, evidence_score, reputation_weight, structural_validity)
             scored.append((candidate, confidence))
 
         scored.sort(key=lambda item: item[1], reverse=True)
@@ -966,77 +944,29 @@ class VicdanEngine:
         max_risk = clamp(max(risk_scores.values(), default=0.0) + context_boost)
 
         if hard_violation:
-            return VicdanResult(
-                task_id=task.task_id,
-                decision="REJECT",
-                risk_scores=risk_scores,
-                rationale=hard_violation,
-                required_modification="Replace with safe refusal.",
-            )
-
+            return VicdanResult(task_id=task.task_id, decision="REJECT", risk_scores=risk_scores, rationale=hard_violation, required_modification="Replace with safe refusal.")
         if max_risk >= 0.80:
-            return VicdanResult(
-                task_id=task.task_id,
-                decision="REJECT",
-                risk_scores=risk_scores,
-                rationale="Risk score exceeded reject threshold.",
-                required_modification="Replace with safe refusal.",
-            )
-
+            return VicdanResult(task_id=task.task_id, decision="REJECT", risk_scores=risk_scores, rationale="Risk score exceeded reject threshold.", required_modification="Replace with safe refusal.")
         if max_risk >= 0.55:
-            return VicdanResult(
-                task_id=task.task_id,
-                decision="REVIEW",
-                risk_scores=risk_scores,
-                rationale="Risk score exceeded review threshold.",
-                required_modification="Return guarded answer with reduced operational detail.",
-            )
-
+            return VicdanResult(task_id=task.task_id, decision="REVIEW", risk_scores=risk_scores, rationale="Risk score exceeded review threshold.", required_modification="Return guarded answer with reduced operational detail.")
         if max_risk >= 0.35:
-            return VicdanResult(
-                task_id=task.task_id,
-                decision="MODIFY",
-                risk_scores=risk_scores,
-                rationale="Moderate risk detected; output should be softened or constrained.",
-                required_modification="Return moderated answer.",
-            )
-
-        return VicdanResult(
-            task_id=task.task_id,
-            decision="ACCEPT",
-            risk_scores=risk_scores,
-            rationale="No blocking or elevated risk detected.",
-            required_modification=None,
-        )
+            return VicdanResult(task_id=task.task_id, decision="MODIFY", risk_scores=risk_scores, rationale="Moderate risk detected; output should be softened or constrained.", required_modification="Return moderated answer.")
+        return VicdanResult(task_id=task.task_id, decision="ACCEPT", risk_scores=risk_scores, rationale="No blocking or elevated risk detected.", required_modification=None)
 
     @staticmethod
     def apply_decision(vicdan: VicdanResult, selected_output: str) -> str:
         if vicdan.decision == "ACCEPT":
             return selected_output
         if vicdan.decision == "MODIFY":
-            return (
-                "Modified by Vicdan: the original answer was reduced to keep it high-level, non-operational, and safer.\n\n"
-                + selected_output
-            )
+            return "Modified by Vicdan: the original answer was reduced to keep it high-level, non-operational, and safer.\n\n" + selected_output
         if vicdan.decision == "REVIEW":
-            return (
-                "Vicdan review state: the request touches elevated-risk territory. "
-                "Only a guarded, high-level response is returned.\n\n"
-                + selected_output
-            )
+            return "Vicdan review state: the request touches elevated-risk territory. Only a guarded, high-level response is returned.\n\n" + selected_output
         return "Vicdan rejection: the system cannot provide the requested output because it violates the active safety policy."
 
 
 class Observer:
     @staticmethod
-    def persist(
-        task: TaskContext,
-        candidates: list[CandidateAnswer],
-        verification: VerificationResult,
-        vicdan: VicdanResult,
-        final_output: str,
-        total_duration_ms: int,
-    ) -> None:
+    def persist(task: TaskContext, candidates: list[CandidateAnswer], verification: VerificationResult, vicdan: VicdanResult, final_output: str, total_duration_ms: int) -> None:
         DB.save_task(task)
         DB.save_candidates(candidates)
         DB.save_verification(verification)
@@ -1107,29 +1037,15 @@ class Orchestrator:
 
         verification = VerificationEngine.verify(task, candidates)
         if not verification.selected_candidate_id:
-            vicdan = VicdanResult(
-                task_id=task.task_id,
-                decision="REJECT",
-                risk_scores={},
-                rationale="No valid candidate selected by verification.",
-                required_modification="Return system-safe failure message.",
-            )
+            vicdan = VicdanResult(task_id=task.task_id, decision="REJECT", risk_scores={}, rationale="No valid candidate selected by verification.", required_modification="Return system-safe failure message.")
             final_output = "HOPEtensor could not produce a sufficiently valid response because all candidate paths failed verification."
             total_duration_ms = int((time.perf_counter() - started) * 1000)
             Observer.persist(task, candidates, verification, vicdan, final_output, total_duration_ms)
-            return FinalResponse(
-                answer=final_output,
-                confidence=0.0,
-                selected_nodes=[c.node_id for c in candidates],
-                verification_summary=verification.verification_summary,
-                vicdan_status=vicdan.decision,
-                trace_id=trace_id,
-            )
+            return FinalResponse(answer=final_output, confidence=0.0, selected_nodes=[c.node_id for c in candidates], verification_summary=verification.verification_summary, vicdan_status=vicdan.decision, trace_id=trace_id)
 
         selected_candidate = next((c for c in valid_candidates if c.candidate_id == verification.selected_candidate_id), None)
         if selected_candidate is None:
             selected_candidate = valid_candidates[0] if valid_candidates else None
-
         if selected_candidate is None:
             raise HTTPException(status_code=500, detail="Verification selected no usable candidate")
 
@@ -1145,10 +1061,7 @@ class Orchestrator:
             confidence = 0.0
 
         if request.required_confidence is not None and confidence < request.required_confidence:
-            final_output = (
-                "HOPEtensor produced a response, but it did not meet the required confidence threshold.\n\n"
-                + final_output
-            )
+            final_output = "HOPEtensor produced a response, but it did not meet the required confidence threshold.\n\n" + final_output
 
         total_duration_ms = int((time.perf_counter() - started) * 1000)
         Observer.persist(task, candidates, verification, vicdan, final_output, total_duration_ms)
@@ -1164,6 +1077,345 @@ class Orchestrator:
 
 
 ORCHESTRATOR = Orchestrator(NODE_REGISTRY)
+
+# ---------- HOPEcore ----------
+
+Horizon = Literal["immediate", "short", "medium", "long"]
+
+
+@dataclass
+class CivilizationGoal:
+    id: str
+    name: str
+    category: str
+    description: str
+    urgency: float
+    impact_score: float
+    ethics_weight: float
+    feasibility_score: float
+    resource_efficiency: float
+    time_sensitivity: float
+    horizon: Horizon
+    beneficiaries: int = 0
+    dependencies: list[str] = field(default_factory=list)
+    risks: list[str] = field(default_factory=list)
+    metadata: dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass
+class SystemResources:
+    budget: float
+    people: int
+    energy_capacity: float
+    infrastructure_readiness: float
+    data_readiness: float
+    local_partnership_strength: float
+    time_budget_months: int
+
+
+@dataclass
+class EthicsProfile:
+    protect_children_weight: float = 1.0
+    reduce_suffering_weight: float = 1.0
+    dignity_weight: float = 1.0
+    sustainability_weight: float = 1.0
+    fairness_weight: float = 1.0
+    long_term_weight: float = 1.0
+
+
+@dataclass
+class ConstraintSet:
+    forbidden_categories: list[str] = field(default_factory=list)
+    max_parallel_goals: int = 3
+    min_ethics_threshold: float = 0.5
+    prefer_fast_impact: bool = False
+    require_local_readiness: bool = False
+
+
+@dataclass
+class GoalScore:
+    goal_id: str
+    final_score: float
+    urgency_component: float
+    impact_component: float
+    ethics_component: float
+    feasibility_component: float
+    efficiency_component: float
+    horizon_component: float
+    resource_fit_component: float
+    penalties: list[str] = field(default_factory=list)
+    notes: list[str] = field(default_factory=list)
+
+
+@dataclass
+class ResourceDecision:
+    goal_id: str
+    goal_name: str
+    rank: int
+    recommended_actions: list[str]
+    required_resources: dict[str, Any]
+    expected_impact: float
+    confidence: float
+    vicdan_alignment: str
+    rationale: str
+
+
+@dataclass
+class PlanningOutput:
+    top_goals: list[GoalScore]
+    decisions: list[ResourceDecision]
+    deferred_goals: list[GoalScore]
+    planner_summary: str
+
+
+class PlanGoalRequest(BaseModel):
+    id: str
+    name: str
+    category: str
+    description: str
+    urgency: float = Field(..., ge=0.0, le=1.0)
+    impact_score: float = Field(..., ge=0.0, le=1.0)
+    ethics_weight: float = Field(..., ge=0.0, le=1.0)
+    feasibility_score: float = Field(..., ge=0.0, le=1.0)
+    resource_efficiency: float = Field(..., ge=0.0, le=1.0)
+    time_sensitivity: float = Field(..., ge=0.0, le=1.0)
+    horizon: Horizon
+    beneficiaries: int = 0
+    dependencies: list[str] = []
+    risks: list[str] = []
+    metadata: dict[str, Any] = {}
+
+
+class PlanRequest(BaseModel):
+    goals: list[PlanGoalRequest]
+    resources: dict[str, Any]
+    ethics: Optional[dict[str, float]] = None
+    constraints: Optional[dict[str, Any]] = None
+
+
+class VicdanGuard:
+    @staticmethod
+    def evaluate_goal(goal: CivilizationGoal, constraints: ConstraintSet) -> tuple[str, list[str]]:
+        reasons: list[str] = []
+        if goal.category in constraints.forbidden_categories:
+            return "REJECT", [f"Forbidden category: {goal.category}"]
+        if goal.ethics_weight < constraints.min_ethics_threshold:
+            return "REJECT", [f"Ethics weight below threshold: {goal.ethics_weight:.2f}"]
+        if "harm_to_children" in goal.risks:
+            return "REJECT", ["Goal carries child-harm risk"]
+        if "mass_displacement" in goal.risks:
+            reasons.append("Requires strong mitigation for displacement risk")
+        if "ecological_damage" in goal.risks:
+            reasons.append("Requires sustainability guardrails")
+        if reasons:
+            return "REVIEW", reasons
+        return "ACCEPT", ["No blocking ethical concerns detected"]
+
+
+class HOPECorePlanner:
+    def __init__(self, resources: SystemResources, ethics: EthicsProfile | None = None, constraints: ConstraintSet | None = None) -> None:
+        self.resources = resources
+        self.ethics = ethics or EthicsProfile()
+        self.constraints = constraints or ConstraintSet()
+
+    def _resource_fit(self, goal: CivilizationGoal) -> float:
+        infra = self.resources.infrastructure_readiness
+        data = self.resources.data_readiness
+        partnership = self.resources.local_partnership_strength
+
+        if goal.category in {"food", "health", "education"}:
+            return min((infra + partnership) / 2, 1.0)
+        if goal.category in {"energy", "manufacturing"}:
+            return min((infra + self.resources.energy_capacity / 100.0) / 2, 1.0)
+        if goal.category in {"governance", "ai", "logistics"}:
+            return min((data + infra) / 2, 1.0)
+        return min((infra + data + partnership) / 3, 1.0)
+
+    def score_goal(self, goal: CivilizationGoal) -> GoalScore:
+        penalties: list[str] = []
+        notes: list[str] = []
+
+        urgency_component = goal.urgency * 0.18
+        impact_component = goal.impact_score * 0.22
+        ethics_multiplier = (
+            self.ethics.protect_children_weight
+            + self.ethics.reduce_suffering_weight
+            + self.ethics.dignity_weight
+            + self.ethics.sustainability_weight
+            + self.ethics.fairness_weight
+            + self.ethics.long_term_weight
+        ) / 6.0
+        ethics_component = min(goal.ethics_weight * ethics_multiplier, 1.0) * 0.22
+        feasibility_component = goal.feasibility_score * 0.16
+        efficiency_component = goal.resource_efficiency * 0.10
+        horizon_map = {"immediate": 1.0, "short": 0.85, "medium": 0.70, "long": 0.55}
+        horizon_component = horizon_map[goal.horizon] * 0.06
+        resource_fit_component = self._resource_fit(goal) * 0.06
+
+        if self.constraints.prefer_fast_impact and goal.horizon in {"medium", "long"}:
+            penalties.append("Fast-impact preference penalized longer horizon")
+            horizon_component *= 0.7
+        if self.constraints.require_local_readiness and self.resources.local_partnership_strength < 0.5:
+            penalties.append("Local readiness required but partnership strength is low")
+            resource_fit_component *= 0.6
+        if goal.beneficiaries > 0 and goal.beneficiaries > self.resources.people * 1000:
+            notes.append("Large beneficiary scope increases systemic leverage")
+
+        final_score = urgency_component + impact_component + ethics_component + feasibility_component + efficiency_component + horizon_component + resource_fit_component
+
+        return GoalScore(
+            goal_id=goal.id,
+            final_score=round(final_score, 4),
+            urgency_component=round(urgency_component, 4),
+            impact_component=round(impact_component, 4),
+            ethics_component=round(ethics_component, 4),
+            feasibility_component=round(feasibility_component, 4),
+            efficiency_component=round(efficiency_component, 4),
+            horizon_component=round(horizon_component, 4),
+            resource_fit_component=round(resource_fit_component, 4),
+            penalties=penalties,
+            notes=notes,
+        )
+
+    def _recommended_actions(self, goal: CivilizationGoal) -> list[str]:
+        base = {
+            "food": ["Map underserved regions", "Launch local nutrition distribution pilots", "Pair food response with local production support"],
+            "health": ["Prioritize preventive screening access", "Deploy community health routing", "Measure early outcome improvement"],
+            "education": ["Identify high-need learners", "Deploy adaptive learning support", "Track retention and literacy gains"],
+            "energy": ["Stabilize local energy bottlenecks", "Prioritize efficient distributed generation", "Track cost and resilience improvements"],
+            "governance": ["Define transparent decision metrics", "Establish auditable contribution records", "Run trust-based feedback loops"],
+            "ai": ["Deploy guarded orchestration", "Measure answer reliability and harms prevented", "Increase traceability and policy enforcement"],
+        }
+        return base.get(goal.category, ["Scope target population", "Run constrained pilot", "Measure impact and iterate"])
+
+    def _required_resources(self, goal: CivilizationGoal) -> dict[str, Any]:
+        return {
+            "budget_estimate": round(10000 * (1.2 - goal.resource_efficiency), 2),
+            "team_estimate": max(2, int(2 + (1.0 - goal.feasibility_score) * 8)),
+            "time_estimate_months": {"immediate": 1, "short": 3, "medium": 6, "long": 12}[goal.horizon],
+            "critical_dependencies": goal.dependencies,
+        }
+
+    def build_decision(self, goal: CivilizationGoal, score: GoalScore, rank: int) -> ResourceDecision:
+        vicdan_alignment, reasons = VicdanGuard.evaluate_goal(goal, self.constraints)
+        confidence = min(1.0, goal.feasibility_score * 0.35 + goal.ethics_weight * 0.25 + self._resource_fit(goal) * 0.20 + goal.resource_efficiency * 0.20)
+        rationale = (
+            f"Selected because it balances urgency ({goal.urgency:.2f}), impact ({goal.impact_score:.2f}), "
+            f"ethics ({goal.ethics_weight:.2f}), and feasibility ({goal.feasibility_score:.2f}). "
+            f"Vicdan status: {vicdan_alignment}. Notes: {'; '.join(reasons)}"
+        )
+        return ResourceDecision(
+            goal_id=goal.id,
+            goal_name=goal.name,
+            rank=rank,
+            recommended_actions=self._recommended_actions(goal),
+            required_resources=self._required_resources(goal),
+            expected_impact=round(goal.impact_score * max(goal.ethics_weight, 0.5), 4),
+            confidence=round(confidence, 4),
+            vicdan_alignment=vicdan_alignment,
+            rationale=rationale,
+        )
+
+    def prioritize(self, goals: list[CivilizationGoal]) -> PlanningOutput:
+        accepted: list[tuple[CivilizationGoal, GoalScore]] = []
+        deferred: list[GoalScore] = []
+
+        for goal in goals:
+            vicdan_status, reasons = VicdanGuard.evaluate_goal(goal, self.constraints)
+            score = self.score_goal(goal)
+            if vicdan_status == "REJECT":
+                score.penalties.extend(reasons)
+                deferred.append(score)
+                continue
+            if vicdan_status == "REVIEW":
+                score.notes.extend(reasons)
+            accepted.append((goal, score))
+
+        accepted.sort(key=lambda x: x[1].final_score, reverse=True)
+        selected = accepted[: self.constraints.max_parallel_goals]
+        deferred.extend(score for _, score in accepted[self.constraints.max_parallel_goals :])
+
+        decisions = [self.build_decision(goal, score, rank=i + 1) for i, (goal, score) in enumerate(selected)]
+        summary = (
+            "No goals selected. Constraints or ethics filters blocked all candidates."
+            if not decisions
+            else f"Selected {len(decisions)} priority goals: {', '.join(d.goal_name for d in decisions)}. Deferred {len(deferred)} additional goals."
+        )
+        return PlanningOutput(top_goals=[score for _, score in selected], decisions=decisions, deferred_goals=deferred, planner_summary=summary)
+
+
+def plan_from_request(req: PlanRequest) -> dict[str, Any]:
+    resources = SystemResources(**req.resources)
+    ethics = EthicsProfile(**(req.ethics or {}))
+    constraints = ConstraintSet(**(req.constraints or {}))
+    planner = HOPECorePlanner(resources=resources, ethics=ethics, constraints=constraints)
+    goals = [CivilizationGoal(**goal.model_dump()) for goal in req.goals]
+    output = planner.prioritize(goals)
+    return {
+        "top_goals": [asdict(x) for x in output.top_goals],
+        "decisions": [asdict(x) for x in output.decisions],
+        "deferred_goals": [asdict(x) for x in output.deferred_goals],
+        "planner_summary": output.planner_summary,
+    }
+
+
+
+
+def write_reason_events_to_hopechain(trace_id: str, candidates: list[CandidateAnswer], verification: VerificationResult, vicdan: VicdanResult) -> list[dict[str, Any]]:
+    records: list[dict[str, Any]] = []
+    for candidate in candidates:
+        preview = candidate.output or candidate.error or "No output"
+        confidence = float(candidate.confidence_self_reported or 0.0)
+        success = not bool(candidate.error)
+        try:
+            records.append(
+                HOPECHAIN.record_node_execution(
+                    trace_id=trace_id,
+                    actor_name=candidate.node_id,
+                    output_preview=preview,
+                    confidence=confidence,
+                    duration_ms=candidate.duration_ms,
+                    success=success,
+                )
+            )
+        except Exception as exc:
+            records.append({"actor_name": candidate.node_id, "error": f"hopechain_node_write_failed: {exc}"})
+
+    try:
+        records.append(
+            HOPECHAIN.record_goal_decision(
+                trace_id=trace_id,
+                actor_name="vicdan",
+                goal_id=verification.selected_candidate_id or "no_candidate",
+                rank=1,
+                expected_impact=float(verification.confidence_score),
+                vicdan_alignment=vicdan.decision,
+            )
+        )
+    except Exception as exc:
+        records.append({"actor_name": "vicdan", "error": f"hopechain_vicdan_write_failed: {exc}"})
+
+    return records
+
+
+def write_plan_events_to_hopechain(trace_id: str, plan_output: dict[str, Any]) -> list[dict[str, Any]]:
+    records: list[dict[str, Any]] = []
+    for decision in plan_output.get("decisions", []):
+        try:
+            records.append(
+                HOPECHAIN.record_goal_decision(
+                    trace_id=trace_id,
+                    actor_name="hopecore",
+                    goal_id=decision.get("goal_id", "unknown_goal"),
+                    rank=int(decision.get("rank", 0) or 0),
+                    expected_impact=float(decision.get("expected_impact", 0.0) or 0.0),
+                    vicdan_alignment=decision.get("vicdan_alignment", "REVIEW"),
+                )
+            )
+        except Exception as exc:
+            records.append({"actor_name": "hopecore", "goal_id": decision.get("goal_id"), "error": f"hopechain_plan_write_failed: {exc}"})
+    return records
+
 
 app = FastAPI(title=SETTINGS.app_name, version=SETTINGS.app_version)
 
@@ -1213,6 +1465,39 @@ async def list_nodes() -> list[NodeStatusResponse]:
 @app.post("/v1/reason", response_model=ReasonResponse)
 async def reason(request: ReasonRequest) -> ReasonResponse:
     result = await ORCHESTRATOR.execute_reasoning(request)
+
+    try:
+        trace = DB.get_trace(result.trace_id)
+        if trace:
+            candidates = [CandidateAnswer(**item) for item in DB.get_candidates_by_task(trace["task_id"])]
+            verification_row = sqlite3.connect(SETTINGS.db_path)
+            verification_row.row_factory = sqlite3.Row
+            vr = verification_row.execute("SELECT * FROM verification_results WHERE task_id = ?", (trace["task_id"],)).fetchone()
+            vc = verification_row.execute("SELECT * FROM vicdan_results WHERE task_id = ?", (trace["task_id"],)).fetchone()
+            verification_row.close()
+
+            if vr and vc:
+                verification = VerificationResult(
+                    task_id=vr["task_id"],
+                    agreement_score=vr["agreement_score"],
+                    evidence_score=vr["evidence_score"],
+                    contradiction_flags=json.loads(vr["contradiction_flags_json"]),
+                    confidence_score=vr["confidence_score"],
+                    candidate_rankings=json.loads(vr["candidate_rankings_json"]),
+                    selected_candidate_id=vr["selected_candidate_id"],
+                    verification_summary=vr["verification_summary"],
+                )
+                vicdan = VicdanResult(
+                    task_id=vc["task_id"],
+                    decision=vc["decision"],
+                    risk_scores=json.loads(vc["risk_scores_json"]),
+                    rationale=vc["rationale"],
+                    required_modification=vc["required_modification"],
+                )
+                write_reason_events_to_hopechain(result.trace_id, candidates, verification, vicdan)
+    except Exception as exc:
+        logger.warning("hopechain reason write skipped: %s", exc)
+
     return ReasonResponse(**result.model_dump())
 
 
@@ -1235,6 +1520,131 @@ async def get_trace(trace_id: str) -> TraceResponse:
         created_at=trace["created_at"],
         candidates=candidates,
     )
+
+
+@app.post("/v1/plan")
+async def plan(request: PlanRequest) -> dict[str, Any]:
+    output = plan_from_request(request)
+    trace_id = generate_id("plantrace")
+    output["trace_id"] = trace_id
+
+    try:
+        output["hopechain_records"] = write_plan_events_to_hopechain(trace_id, output)
+    except Exception as exc:
+        logger.warning("hopechain plan write skipped: %s", exc)
+        output["hopechain_records"] = [{"error": str(exc)}]
+
+    return output
+
+@app.get("/v1/chain/events")
+async def chain_events(limit: int = 20) -> dict[str, Any]:
+    return {
+        "events": HOPECHAIN.db.list_recent_events(limit=limit),
+        "chain_verify": HOPECHAIN.db.verify_chain(),
+    }
+
+
+class FoodRegion(BaseModel):
+    region: str
+    children_at_risk: int = Field(..., ge=0)
+    food_supply: int = Field(..., ge=0)
+    urgency: float = Field(..., ge=0.0, le=1.0)
+    local_capacity: float = Field(..., ge=0.0, le=1.0)
+    logistics: float = Field(..., ge=0.0, le=1.0)
+    nutrition_quality: float = Field(default=0.5, ge=0.0, le=1.0)
+    storage_readiness: float = Field(default=0.5, ge=0.0, le=1.0)
+
+
+class FoodRequest(BaseModel):
+    regions: list[FoodRegion]
+
+
+def classify_food_action(priority_score: float, deficit: int, local_capacity: float) -> str:
+    if deficit <= 0:
+        return "Stable supply"
+    if priority_score >= 0.80:
+        return "Emergency food routing"
+    if priority_score >= 0.65:
+        return "Priority nutrition support"
+    if local_capacity < 0.40:
+        return "External support + logistics reinforcement"
+    return "Monitor and local support"
+
+
+@app.post("/v1/hopeverse/food/plan")
+async def food_plan(request: FoodRequest) -> dict[str, Any]:
+    trace_id = generate_id("foodtrace")
+    results: list[dict[str, Any]] = []
+
+    total_children = 0
+    total_supply = 0
+    total_deficit = 0
+
+    for r in request.regions:
+        deficit = max(0, r.children_at_risk - r.food_supply)
+        deficit_ratio = deficit / max(1, r.children_at_risk)
+
+        priority_score = (
+            r.urgency * 0.30
+            + deficit_ratio * 0.30
+            + (1 - r.nutrition_quality) * 0.10
+            + (1 - r.storage_readiness) * 0.10
+            + r.local_capacity * 0.10
+            + r.logistics * 0.10
+        )
+        priority_score = round(min(max(priority_score, 0.0), 1.0), 4)
+        action = classify_food_action(priority_score, deficit, r.local_capacity)
+
+        item = {
+            "region": r.region,
+            "children_at_risk": r.children_at_risk,
+            "food_supply": r.food_supply,
+            "deficit": deficit,
+            "deficit_ratio": round(deficit_ratio, 4),
+            "priority_score": priority_score,
+            "action": action,
+            "local_capacity": r.local_capacity,
+            "logistics": r.logistics,
+            "nutrition_quality": r.nutrition_quality,
+            "storage_readiness": r.storage_readiness,
+        }
+        results.append(item)
+
+        total_children += r.children_at_risk
+        total_supply += r.food_supply
+        total_deficit += deficit
+
+    results.sort(key=lambda x: x["priority_score"], reverse=True)
+
+    try:
+        hopechain_records = []
+        for idx, item in enumerate(results, start=1):
+            hopechain_records.append(
+                HOPECHAIN.record_goal_decision(
+                    trace_id=trace_id,
+                    actor_name="hopeverse_food",
+                    goal_id=f"food_{item['region'].lower().replace(' ', '_')}",
+                    rank=idx,
+                    expected_impact=float(item["priority_score"]),
+                    vicdan_alignment="ACCEPT",
+                )
+            )
+    except Exception as exc:
+        logger.warning("hopechain food write skipped: %s", exc)
+        hopechain_records = [{"error": str(exc)}]
+
+    return {
+        "trace_id": trace_id,
+        "mission": "No child sleeps hungry",
+        "summary": {
+            "regions": len(results),
+            "total_children_at_risk": total_children,
+            "total_supply": total_supply,
+            "total_deficit": total_deficit,
+        },
+        "top_regions": results,
+        "hopechain_records": hopechain_records,
+    }
 
 
 if __name__ == "__main__":

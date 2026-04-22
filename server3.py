@@ -606,96 +606,60 @@ class ExternalLLMNode(BaseNode):
         self.cost_weight = 0.75
         self.latency_weight = 0.60
         self.policy_tags = ["default", "strict"]
-        self.enabled = True
+        self.enabled = SETTINGS.enable_external_node and bool(SETTINGS.external_llm_api_key)
 
     async def run(self, task: TaskContext) -> CandidateAnswer:
         start = time.perf_counter()
+        if not self.enabled:
+            return CandidateAnswer(
+                candidate_id=generate_id("cand"),
+                task_id=task.task_id,
+                node_id=self.node_id,
+                output=None,
+                confidence_self_reported=None,
+                evidence_refs=[],
+                duration_ms=int((time.perf_counter() - start) * 1000),
+                error="external_node_disabled",
+            )
 
-        # If a real API key exists, use real external inference.
-        if SETTINGS.external_llm_api_key:
-            headers = {
-                "Authorization": f"Bearer {SETTINGS.external_llm_api_key}",
-                "Content-Type": "application/json",
-            }
-            payload = {
-                "model": SETTINGS.external_llm_model,
-                "messages": [
-                    {
-                        "role": "system",
-                        "content": (
-                            "You are a reasoning node inside HOPEtensor. "
-                            "Produce a concise, careful answer. State assumptions when needed."
-                        ),
-                    },
-                    {"role": "user", "content": task.prompt},
-                ],
-                "temperature": 0.2,
-            }
+        headers = {
+            "Authorization": f"Bearer {SETTINGS.external_llm_api_key}",
+            "Content-Type": "application/json",
+        }
+        payload = {
+            "model": SETTINGS.external_llm_model,
+            "messages": [
+                {
+                    "role": "system",
+                    "content": (
+                        "You are a reasoning node inside HOPEtensor. "
+                        "Produce a concise, careful answer. State assumptions when needed."
+                    ),
+                },
+                {"role": "user", "content": task.prompt},
+            ],
+            "temperature": 0.2,
+        }
 
-            try:
-                timeout = SETTINGS.node_timeout_ms / 1000
-                async with httpx.AsyncClient(timeout=timeout) as client:
-                    response = await client.post(
-                        f"{SETTINGS.external_llm_base_url.rstrip('/')}/chat/completions",
-                        headers=headers,
-                        json=payload,
-                    )
-                    response.raise_for_status()
-                    data = response.json()
-                    content = data["choices"][0]["message"]["content"]
-
-                return CandidateAnswer(
-                    candidate_id=generate_id("cand"),
-                    task_id=task.task_id,
-                    node_id=self.node_id,
-                    output=normalize_whitespace(content),
-                    confidence_self_reported=0.78,
-                    evidence_refs=[],
-                    duration_ms=int((time.perf_counter() - start) * 1000),
-                    error=None,
-                )
-            except Exception as exc:
-                return CandidateAnswer(
-                    candidate_id=generate_id("cand"),
-                    task_id=task.task_id,
-                    node_id=self.node_id,
-                    output=None,
-                    confidence_self_reported=None,
-                    evidence_refs=[],
-                    duration_ms=int((time.perf_counter() - start) * 1000),
-                    error=f"external_node_error: {exc}",
-                )
-
-        # No API key: use guaranteed mock external reasoning so multi-node demo still works.
         try:
-            prompt = normalize_whitespace(task.prompt).lower()
-
-            if "hallucination" in prompt:
-                output = (
-                    "External node analysis: single-model systems hallucinate because generation is probabilistic, "
-                    "grounding is incomplete, and confidence is often implicit rather than explicit. "
-                    "Governed multi-node execution reduces risk by comparing reasoning paths, scoring agreement, "
-                    "and applying final policy control before release."
+            timeout = SETTINGS.node_timeout_ms / 1000
+            async with httpx.AsyncClient(timeout=timeout) as client:
+                response = await client.post(
+                    f"{SETTINGS.external_llm_base_url.rstrip('/')}/chat/completions",
+                    headers=headers,
+                    json=payload,
                 )
-            elif task.task_type == "technical":
-                output = (
-                    "External node analysis: this technical request benefits from a second reasoning path. "
-                    "A robust production pattern is independent node execution, verification scoring, "
-                    "and release only after consistency checks."
-                )
-            else:
-                output = (
-                    "External node analysis: this request benefits from structured multi-node reasoning. "
-                    "Independent candidate generation improves trust when combined with verification and policy review."
-                )
+                response.raise_for_status()
+                data = response.json()
+                content = data["choices"][0]["message"]["content"]
 
             return CandidateAnswer(
                 candidate_id=generate_id("cand"),
                 task_id=task.task_id,
                 node_id=self.node_id,
-                output=output,
+                output=normalize_whitespace(content),
                 confidence_self_reported=0.78,
-                evidence_refs=["synthetic_reasoning"],
+                evidence_refs=[],
                 duration_ms=int((time.perf_counter() - start) * 1000),
                 error=None,
             )
@@ -770,7 +734,30 @@ class NodeRegistry:
 
     def select_for_task(self, task_type: str, policy_profile: str, mode: Optional[str] = None) -> list[BaseNode]:
         nodes = self.list_enabled()
-        return nodes
+        selected: list[BaseNode] = []
+
+        local = [n for n in nodes if n.node_type == "local"]
+        external = [n for n in nodes if n.node_type == "external_llm"]
+        retrieval = [n for n in nodes if n.node_type == "retrieval"]
+
+        if local:
+            selected.append(local[0])
+        if external:
+            selected.append(external[0])
+
+        if task_type == "retrieval_recommended" and retrieval:
+            selected.append(retrieval[0])
+        if mode == "strict" and retrieval and retrieval[0] not in selected:
+            selected.append(retrieval[0])
+
+        if mode == "strict" and len(selected) < SETTINGS.strict_mode_min_nodes:
+            for node in nodes:
+                if node not in selected:
+                    selected.append(node)
+                if len(selected) >= SETTINGS.strict_mode_min_nodes:
+                    break
+
+        return selected
 
 
 NODE_REGISTRY = NodeRegistry()

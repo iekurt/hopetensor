@@ -1,0 +1,516 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>HOPEchain Explorer</title>
+  <style>
+    :root {
+      --bg: #0b0f1a;
+      --bg-2: #101827;
+      --panel: rgba(255,255,255,0.06);
+      --panel-strong: rgba(255,255,255,0.1);
+      --text: #f5f7fb;
+      --muted: #a9b4c7;
+      --accent: #4da3ff;
+      --accent-2: #71e4ff;
+      --line: rgba(255,255,255,0.12);
+      --ok: #6ee7b7;
+      --warn: #fbbf24;
+      --danger: #fb7185;
+      --shadow: 0 20px 60px rgba(0,0,0,0.45);
+      --radius: 22px;
+      --max: 1320px;
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Inter, Arial, Helvetica, sans-serif;
+      background:
+        radial-gradient(circle at top right, rgba(77,163,255,0.18), transparent 28%),
+        radial-gradient(circle at top left, rgba(113,228,255,0.08), transparent 24%),
+        linear-gradient(180deg, #0b0f1a 0%, #0d1220 50%, #0b0f1a 100%);
+      color: var(--text);
+    }
+
+    .container {
+      width: min(var(--max), calc(100% - 32px));
+      margin: 0 auto;
+      padding: 28px 0 56px;
+    }
+
+    .topbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 16px;
+      margin-bottom: 22px;
+      flex-wrap: wrap;
+    }
+
+    .brand {
+      font-size: 1.4rem;
+      font-weight: 800;
+      letter-spacing: 0.02em;
+    }
+
+    .brand span { color: var(--accent); }
+
+    .subtitle {
+      color: var(--muted);
+      font-size: 0.98rem;
+      max-width: 760px;
+      line-height: 1.6;
+      margin-top: 8px;
+    }
+
+    .hero, .panel, .stat, .timeline-card, .event-card {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+    }
+
+    .hero {
+      padding: 22px 24px;
+      margin-bottom: 20px;
+    }
+
+    .controls {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      align-items: end;
+      margin-top: 18px;
+    }
+
+    label {
+      display: block;
+      margin-bottom: 8px;
+      color: var(--muted);
+      font-size: 0.92rem;
+      font-weight: 700;
+    }
+
+    input, select, textarea {
+      width: 100%;
+      background: rgba(255,255,255,0.04);
+      color: white;
+      border: 1px solid rgba(255,255,255,0.14);
+      border-radius: 16px;
+      padding: 14px 16px;
+      font: inherit;
+      outline: none;
+    }
+
+    .field { min-width: 180px; flex: 1; }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      border-radius: 999px;
+      padding: 14px 20px;
+      font-weight: 700;
+      border: 1px solid transparent;
+      transition: 0.2s ease;
+      cursor: pointer;
+      background: linear-gradient(90deg, var(--accent), var(--accent-2));
+      color: white;
+    }
+
+    .btn.secondary {
+      background: rgba(255,255,255,0.04);
+      border-color: rgba(255,255,255,0.12);
+    }
+
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 14px;
+      margin-bottom: 20px;
+    }
+
+    .stat { padding: 18px; }
+    .stat-label {
+      color: var(--muted);
+      font-size: 0.84rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: 8px;
+    }
+    .stat-value {
+      font-size: 1.5rem;
+      font-weight: 800;
+      word-break: break-word;
+    }
+
+    .layout {
+      display: grid;
+      grid-template-columns: 1.2fr 0.8fr;
+      gap: 20px;
+      align-items: start;
+    }
+
+    .panel { padding: 22px; }
+
+    h2, h3 {
+      margin: 0 0 14px;
+      letter-spacing: -0.02em;
+    }
+
+    .timeline {
+      display: grid;
+      gap: 14px;
+    }
+
+    .timeline-card {
+      padding: 16px;
+      border-radius: 18px;
+    }
+
+    .timeline-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 10px;
+      flex-wrap: wrap;
+    }
+
+    .badge-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 8px 10px;
+      border-radius: 999px;
+      font-size: 0.82rem;
+      font-weight: 700;
+      border: 1px solid rgba(255,255,255,0.10);
+      background: rgba(255,255,255,0.05);
+    }
+
+    .ok { color: var(--ok); }
+    .warn { color: var(--warn); }
+    .danger { color: var(--danger); }
+
+    .mono {
+      font-family: Consolas, Menlo, monospace;
+      font-size: 0.88rem;
+      color: #d5e4ff;
+      word-break: break-word;
+    }
+
+    .muted {
+      color: var(--muted);
+      line-height: 1.6;
+    }
+
+    .event-card {
+      padding: 14px 16px;
+      margin-top: 10px;
+      border-radius: 16px;
+    }
+
+    .event-card pre {
+      margin: 0;
+      white-space: pre-wrap;
+      word-break: break-word;
+      font-family: Consolas, Menlo, monospace;
+      font-size: 0.85rem;
+      color: #dce9ff;
+    }
+
+    .rep-list {
+      display: grid;
+      gap: 12px;
+    }
+
+    .rep-card {
+      padding: 16px;
+      border-radius: 16px;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.08);
+    }
+
+    .rep-title {
+      font-weight: 800;
+      margin-bottom: 6px;
+    }
+
+    .progress {
+      width: 100%;
+      height: 10px;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.08);
+      overflow: hidden;
+      margin-top: 8px;
+    }
+
+    .progress > div {
+      height: 100%;
+      border-radius: 999px;
+      background: linear-gradient(90deg, #6ee7b7, #4da3ff);
+    }
+
+    .status-line {
+      margin-top: 12px;
+      color: var(--muted);
+      min-height: 22px;
+    }
+
+    .verify-box {
+      padding: 16px;
+      border-radius: 16px;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.08);
+      margin-top: 14px;
+    }
+
+    @media (max-width: 1020px) {
+      .layout { grid-template-columns: 1fr; }
+      .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    }
+
+    @media (max-width: 720px) {
+      .stats { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="topbar">
+      <div>
+        <div class="brand">HOPE<span>chain</span> Explorer</div>
+        <div class="subtitle">
+          DID-based contribution history, signed events, reputation state, and chain verification for the HOPEverse stack.
+        </div>
+      </div>
+    </div>
+
+    <div class="hero">
+      <h2>Chain control panel</h2>
+      <div class="controls">
+        <div class="field">
+          <label for="apiBase">API Base</label>
+          <input id="apiBase" value="http://localhost:8000" />
+        </div>
+        <div class="field">
+          <label for="eventLimit">Event Limit</label>
+          <input id="eventLimit" type="number" value="20" min="1" max="200" />
+        </div>
+        <div class="field">
+          <label for="didFilter">Actor DID / Name Filter</label>
+          <input id="didFilter" placeholder="optional filter text" />
+        </div>
+        <button class="btn" onclick="loadChain()">Refresh Chain</button>
+        <button class="btn secondary" onclick="clearFilter()">Clear Filter</button>
+      </div>
+      <div class="status-line" id="status">Waiting for chain load.</div>
+    </div>
+
+    <div class="stats">
+      <div class="stat">
+        <div class="stat-label">Chain Status</div>
+        <div class="stat-value" id="chainOk">-</div>
+      </div>
+      <div class="stat">
+        <div class="stat-label">Checked Records</div>
+        <div class="stat-value" id="checkedRecords">-</div>
+      </div>
+      <div class="stat">
+        <div class="stat-label">Visible Events</div>
+        <div class="stat-value" id="visibleEvents">-</div>
+      </div>
+      <div class="stat">
+        <div class="stat-label">Unique Actors</div>
+        <div class="stat-value" id="uniqueActors">-</div>
+      </div>
+    </div>
+
+    <div class="layout">
+      <div class="panel">
+        <h3>Event timeline</h3>
+        <div class="timeline" id="timeline">
+          <div class="muted">No events loaded yet.</div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h3>Reputation explorer</h3>
+        <div class="rep-list" id="reputationList">
+          <div class="muted">Load chain data to calculate live reputation view.</div>
+        </div>
+
+        <div class="verify-box">
+          <h3 style="margin-bottom:10px;">Chain verification</h3>
+          <div class="muted" id="chainVerifyText">No verification result yet.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    function getApiBase() {
+      return document.getElementById("apiBase").value.trim().replace(/\/$/, "");
+    }
+
+    function clearFilter() {
+      document.getElementById("didFilter").value = "";
+      loadChain();
+    }
+
+    function escapeHtml(value) {
+      return String(value ?? "")
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;");
+    }
+
+    function computeReputation(events) {
+      const map = new Map();
+
+      for (const ev of events) {
+        const key = ev.actor_did || ev.actor_name || "unknown";
+        const current = map.get(key) || {
+          actor_did: ev.actor_did || "-",
+          actor_name: ev.actor_name || "-",
+          actor_type: ev.actor_type || "-",
+          reputation_score: 0.5,
+          trust_score: 0.5,
+          contribution_count: 0,
+          last_event_at: ev.created_at || "-",
+        };
+
+        current.reputation_score = Math.max(0, Math.min(1, current.reputation_score + (Number(ev.impact_score || 0) * 0.08)));
+        current.trust_score = Math.max(0, Math.min(1, current.trust_score + Number(ev.trust_delta || 0)));
+        current.contribution_count += 1;
+        current.last_event_at = ev.created_at || current.last_event_at;
+
+        map.set(key, current);
+      }
+
+      return Array.from(map.values()).sort((a, b) => b.reputation_score - a.reputation_score);
+    }
+
+    function renderReputation(list) {
+      const root = document.getElementById("reputationList");
+      if (!list.length) {
+        root.innerHTML = `<div class="muted">No actors matched the current filter.</div>`;
+        return;
+      }
+
+      root.innerHTML = list.map(item => `
+        <div class="rep-card">
+          <div class="rep-title">${escapeHtml(item.actor_name)}</div>
+          <div class="muted">${escapeHtml(item.actor_type)} · <span class="mono">${escapeHtml(item.actor_did)}</span></div>
+          <div class="muted" style="margin-top:8px;">Reputation: ${(item.reputation_score * 100).toFixed(1)}%</div>
+          <div class="progress"><div style="width:${(item.reputation_score * 100).toFixed(1)}%"></div></div>
+          <div class="muted" style="margin-top:8px;">Trust: ${(item.trust_score * 100).toFixed(1)}%</div>
+          <div class="progress"><div style="width:${(item.trust_score * 100).toFixed(1)}%"></div></div>
+          <div class="muted" style="margin-top:8px;">Contributions: ${item.contribution_count}</div>
+        </div>
+      `).join("");
+    }
+
+    function renderTimeline(events) {
+      const timeline = document.getElementById("timeline");
+      if (!events.length) {
+        timeline.innerHTML = `<div class="muted">No events matched the current filter.</div>`;
+        return;
+      }
+
+      timeline.innerHTML = events.map(ev => {
+        const okClass = ev.signature_verify && ev.signature_verify.ok === false ? "danger" : "ok";
+        const payload = ev.payload ? JSON.stringify(ev.payload, null, 2) : "{}";
+        return `
+          <div class="timeline-card">
+            <div class="timeline-top">
+              <strong>${escapeHtml(ev.event_type || "-")}</strong>
+              <span class="mono">#${escapeHtml(ev.chain_index ?? "-")}</span>
+            </div>
+            <div class="badge-row">
+              <span class="badge ${okClass}">Actor: ${escapeHtml(ev.actor_name || "-")}</span>
+              <span class="badge">${escapeHtml(ev.actor_type || "-")}</span>
+              <span class="badge">Impact: ${Number(ev.impact_score || 0).toFixed(2)}</span>
+              <span class="badge">Trust Δ: ${Number(ev.trust_delta || 0).toFixed(2)}</span>
+            </div>
+            <div class="muted">DID</div>
+            <div class="mono">${escapeHtml(ev.actor_did || "-")}</div>
+            <div class="muted" style="margin-top:10px;">Hash</div>
+            <div class="mono">${escapeHtml(ev.record_hash || "-")}</div>
+            <div class="muted" style="margin-top:10px;">Prev Hash</div>
+            <div class="mono">${escapeHtml(ev.prev_hash || "-")}</div>
+            <div class="muted" style="margin-top:10px;">Created</div>
+            <div class="mono">${escapeHtml(ev.created_at || "-")}</div>
+            <div class="event-card"><pre>${escapeHtml(payload)}</pre></div>
+          </div>
+        `;
+      }).join("");
+    }
+
+    async function loadChain() {
+      const base = getApiBase();
+      const limit = Number(document.getElementById("eventLimit").value || 20);
+      const filter = document.getElementById("didFilter").value.trim().toLowerCase();
+      const status = document.getElementById("status");
+
+      status.textContent = "Loading HOPEchain events...";
+
+      try {
+        const res = await fetch(`${base}/v1/chain/events?limit=${limit}`);
+        if (!res.ok) {
+          const text = await res.text();
+          throw new Error(`Chain API error ${res.status}: ${text}`);
+        }
+
+        const data = await res.json();
+        let events = Array.isArray(data.events) ? data.events : [];
+
+        if (filter) {
+          events = events.filter(ev =>
+            String(ev.actor_did || "").toLowerCase().includes(filter) ||
+            String(ev.actor_name || "").toLowerCase().includes(filter) ||
+            String(ev.event_type || "").toLowerCase().includes(filter)
+          );
+        }
+
+        const reputation = computeReputation(events);
+        const uniqueActors = new Set(events.map(ev => ev.actor_did || ev.actor_name)).size;
+
+        document.getElementById("chainOk").textContent = data.chain_verify?.ok ? "VALID" : "BROKEN";
+        document.getElementById("checkedRecords").textContent = data.chain_verify?.checked_records ?? "-";
+        document.getElementById("visibleEvents").textContent = events.length;
+        document.getElementById("uniqueActors").textContent = uniqueActors;
+        document.getElementById("chainVerifyText").textContent = data.chain_verify?.ok
+          ? `Chain verified successfully across ${data.chain_verify.checked_records} records.`
+          : (data.chain_verify?.error || "Chain verification failed.");
+
+        renderTimeline(events);
+        renderReputation(reputation);
+
+        status.textContent = "HOPEchain loaded successfully.";
+      } catch (error) {
+        document.getElementById("chainOk").textContent = "ERROR";
+        document.getElementById("checkedRecords").textContent = "-";
+        document.getElementById("visibleEvents").textContent = "-";
+        document.getElementById("uniqueActors").textContent = "-";
+        document.getElementById("timeline").innerHTML = `<div class="muted">${escapeHtml(String(error))}</div>`;
+        document.getElementById("reputationList").innerHTML = `<div class="muted">Unable to load reputation view.</div>`;
+        document.getElementById("chainVerifyText").textContent = "No verification result.";
+        status.textContent = "Failed to load HOPEchain.";
+      }
+    }
+
+    loadChain();
+  </script>
+</body>
+</html>

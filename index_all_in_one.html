@@ -479,6 +479,94 @@
     .warn { color: var(--warn); }
     .danger { color: var(--danger); }
 
+    
+    .plan-wrap {
+      display: grid;
+      grid-template-columns: 0.95fr 1.05fr;
+      gap: 20px;
+      align-items: start;
+    }
+
+    .plan-json {
+      min-height: 220px;
+      font-family: Consolas, monospace;
+      font-size: 0.9rem;
+    }
+
+    .plan-summary {
+      padding: 14px 16px;
+      border-radius: 14px;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.08);
+      color: white;
+      line-height: 1.6;
+      white-space: pre-wrap;
+    }
+
+
+    .chain-wrap {
+      display: grid;
+      grid-template-columns: 1.1fr 0.9fr;
+      gap: 20px;
+      align-items: start;
+    }
+
+    .chain-grid {
+      display: grid;
+      gap: 14px;
+    }
+
+    .chain-card {
+      padding: 16px;
+      border-radius: 16px;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.08);
+    }
+
+    .chain-card pre {
+      margin: 0;
+      white-space: pre-wrap;
+      word-break: break-word;
+      font-family: Consolas, Menlo, monospace;
+      font-size: 0.84rem;
+      color: #dce9ff;
+    }
+
+    .chain-rep {
+      display: grid;
+      gap: 12px;
+    }
+
+    .chain-rep-item {
+      padding: 14px 16px;
+      border-radius: 16px;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.08);
+    }
+
+    .chain-progress {
+      width: 100%;
+      height: 10px;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.08);
+      overflow: hidden;
+      margin-top: 8px;
+    }
+
+    .chain-progress > div {
+      height: 100%;
+      border-radius: 999px;
+      background: linear-gradient(90deg, #6ee7b7, #4da3ff);
+    }
+
+    .chain-meta {
+      font-family: Consolas, Menlo, monospace;
+      font-size: 0.82rem;
+      color: #dce9ff;
+      word-break: break-word;
+      margin-top: 8px;
+    }
+
     .roadmap {
       display: grid;
       grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -526,6 +614,8 @@
     @media (max-width: 1100px) {
       .hero-grid,
       .demo-wrap,
+      .plan-wrap,
+      .chain-wrap,
       .problem-row,
       .grid-3,
       .grid-4,
@@ -559,6 +649,8 @@
         <a href="#problem">Problem</a>
         <a href="#architecture">Architecture</a>
         <a href="#demo">Live Demo</a>
+        <a href="#plan">HOPEcore Plan</a>
+        <a href="#chain">HOPEchain</a>
         <a href="#roadmap">Roadmap</a>
         <a href="#contact">Contact</a>
       </div>
@@ -833,6 +925,169 @@
     </div>
   </section>
 
+
+  <section id="plan">
+    <div class="container">
+      <div class="section-head">
+        <h2>HOPEcore planning demo</h2>
+        <p>
+          Run civilization-priority planning with goals, resource constraints, and ethics weights.
+          This calls <code>/v1/plan</code> and returns ranked goals, actions, confidence, and Vicdan alignment.
+        </p>
+      </div>
+      <div class="plan-wrap">
+        <div class="demo-panel">
+          <h3>Run HOPEcore Plan</h3>
+          <label for="planPayload">Planner Payload</label>
+          <textarea id="planPayload" class="plan-json">{
+  "goals": [
+    {
+      "id": "goal_food_001",
+      "name": "Child Nutrition Access",
+      "category": "food",
+      "description": "Reduce child hunger through targeted nutrition routing and local support.",
+      "urgency": 0.95,
+      "impact_score": 0.96,
+      "ethics_weight": 1.0,
+      "feasibility_score": 0.82,
+      "resource_efficiency": 0.76,
+      "time_sensitivity": 0.95,
+      "horizon": "immediate",
+      "beneficiaries": 250000,
+      "dependencies": ["local_warehousing", "school_networks"],
+      "risks": []
+    },
+    {
+      "id": "goal_ai_001",
+      "name": "Trusted AI Public Service Layer",
+      "category": "ai",
+      "description": "Deploy traceable and governed AI assistance for public-impact workflows.",
+      "urgency": 0.72,
+      "impact_score": 0.84,
+      "ethics_weight": 0.93,
+      "feasibility_score": 0.86,
+      "resource_efficiency": 0.83,
+      "time_sensitivity": 0.66,
+      "horizon": "short",
+      "beneficiaries": 300000,
+      "dependencies": ["policy_framework", "audit_logging"],
+      "risks": []
+    }
+  ],
+  "resources": {
+    "budget": 500000,
+    "people": 40,
+    "energy_capacity": 70,
+    "infrastructure_readiness": 0.78,
+    "data_readiness": 0.74,
+    "local_partnership_strength": 0.81,
+    "time_budget_months": 12
+  },
+  "ethics": {
+    "protect_children_weight": 1.0,
+    "reduce_suffering_weight": 1.0,
+    "dignity_weight": 0.95,
+    "sustainability_weight": 0.9,
+    "fairness_weight": 0.92,
+    "long_term_weight": 0.88
+  },
+  "constraints": {
+    "forbidden_categories": [],
+    "max_parallel_goals": 3,
+    "min_ethics_threshold": 0.55,
+    "prefer_fast_impact": true,
+    "require_local_readiness": false
+  }
+}</textarea>
+          <div class="demo-actions">
+            <button class="btn btn-primary" onclick="runPlan()">Run HOPEcore Plan</button>
+            <button class="btn btn-secondary" onclick="loadPlanSample()">Load Default Plan</button>
+          </div>
+          <div class="status" id="planStatus">Waiting for planner execution.</div>
+        </div>
+
+        <div class="demo-panel">
+          <h3>Planner Output</h3>
+          <div class="result">
+            <div class="result-block">
+              <span class="result-label">Planner Summary</span>
+              <div class="result-value" id="planSummary">No planning output yet.</div>
+            </div>
+            <div class="result-block">
+              <span class="result-label">Top Decisions</span>
+              <div class="result-value" id="planDecisions">-</div>
+            </div>
+            <div class="result-block">
+              <span class="result-label">Full Planner JSON</span>
+              <div class="trace-box" id="planOutput">-</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+
+
+  <section id="chain">
+    <div class="container">
+      <div class="section-head">
+        <h2>HOPEchain explorer</h2>
+        <p>
+          View DID-linked contribution history, signed events, reputation flow, and chain verification directly from the main dashboard.
+        </p>
+      </div>
+      <div class="chain-wrap">
+        <div class="demo-panel">
+          <h3>Chain Control</h3>
+          <div class="form-row">
+            <div>
+              <label for="chainLimit">Event Limit</label>
+              <input id="chainLimit" type="number" value="20" min="1" max="200" />
+            </div>
+            <div>
+              <label for="chainFilter">Actor / DID / Event Filter</label>
+              <input id="chainFilter" placeholder="optional filter" />
+            </div>
+          </div>
+          <div class="demo-actions">
+            <button class="btn btn-primary" onclick="loadChain()">Load HOPEchain</button>
+            <button class="btn btn-secondary" onclick="clearChainFilter()">Clear Filter</button>
+          </div>
+          <div class="status" id="chainStatus">Waiting for HOPEchain load.</div>
+
+          <div class="result" style="margin-top:16px;">
+            <div class="badge-row">
+              <div class="badge"><span class="ok">Chain:</span>&nbsp;<span id="chainOk">-</span></div>
+              <div class="badge"><span class="warn">Checked:</span>&nbsp;<span id="chainChecked">-</span></div>
+              <div class="badge"><span class="ok">Events:</span>&nbsp;<span id="chainEventCount">-</span></div>
+              <div class="badge"><span class="warn">Actors:</span>&nbsp;<span id="chainActorCount">-</span></div>
+            </div>
+            <div class="result-block">
+              <span class="result-label">Chain Verification</span>
+              <div class="result-value" id="chainVerifyText">No verification result yet.</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="demo-panel">
+          <h3>Reputation Explorer</h3>
+          <div class="chain-rep" id="chainReputation">
+            <div class="result-value">No reputation data loaded yet.</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="demo-panel" style="margin-top:20px;">
+        <h3>Chain Timeline</h3>
+        <div class="chain-grid" id="chainTimeline">
+          <div class="result-value">No chain events loaded yet.</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+
   <section id="roadmap">
     <div class="container">
       <div class="section-head">
@@ -898,6 +1153,255 @@
     function loadSample() {
       document.getElementById("prompt").value = "Explain why single-model AI systems hallucinate and how governed multi-node execution reduces risk in production environments.";
     }
+
+
+    function loadPlanSample() {
+      document.getElementById("planPayload").value = `{
+  "goals": [
+    {
+      "id": "goal_food_001",
+      "name": "Child Nutrition Access",
+      "category": "food",
+      "description": "Reduce child hunger through targeted nutrition routing and local support.",
+      "urgency": 0.95,
+      "impact_score": 0.96,
+      "ethics_weight": 1.0,
+      "feasibility_score": 0.82,
+      "resource_efficiency": 0.76,
+      "time_sensitivity": 0.95,
+      "horizon": "immediate",
+      "beneficiaries": 250000,
+      "dependencies": ["local_warehousing", "school_networks"],
+      "risks": []
+    },
+    {
+      "id": "goal_ai_001",
+      "name": "Trusted AI Public Service Layer",
+      "category": "ai",
+      "description": "Deploy traceable and governed AI assistance for public-impact workflows.",
+      "urgency": 0.72,
+      "impact_score": 0.84,
+      "ethics_weight": 0.93,
+      "feasibility_score": 0.86,
+      "resource_efficiency": 0.83,
+      "time_sensitivity": 0.66,
+      "horizon": "short",
+      "beneficiaries": 300000,
+      "dependencies": ["policy_framework", "audit_logging"],
+      "risks": []
+    }
+  ],
+  "resources": {
+    "budget": 500000,
+    "people": 40,
+    "energy_capacity": 70,
+    "infrastructure_readiness": 0.78,
+    "data_readiness": 0.74,
+    "local_partnership_strength": 0.81,
+    "time_budget_months": 12
+  },
+  "ethics": {
+    "protect_children_weight": 1.0,
+    "reduce_suffering_weight": 1.0,
+    "dignity_weight": 0.95,
+    "sustainability_weight": 0.9,
+    "fairness_weight": 0.92,
+    "long_term_weight": 0.88
+  },
+  "constraints": {
+    "forbidden_categories": [],
+    "max_parallel_goals": 3,
+    "min_ethics_threshold": 0.55,
+    "prefer_fast_impact": true,
+    "require_local_readiness": false
+  }
+}`;
+    }
+
+    async function runPlan() {
+      const status = document.getElementById("planStatus");
+      const summary = document.getElementById("planSummary");
+      const decisions = document.getElementById("planDecisions");
+      const output = document.getElementById("planOutput");
+
+      status.textContent = "Running HOPEcore planning...";
+      summary.textContent = "Planning...";
+      decisions.textContent = "-";
+      output.textContent = "-";
+
+      try {
+        const payload = JSON.parse(document.getElementById("planPayload").value);
+
+        const response = await fetch("http://localhost:8000/v1/plan", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        });
+
+        if (!response.ok) {
+          const text = await response.text();
+          throw new Error(`Plan API error ${response.status}: ${text}`);
+        }
+
+        const data = await response.json();
+
+        summary.textContent = data.planner_summary ?? "-";
+        decisions.innerHTML = Array.isArray(data.decisions)
+          ? data.decisions.map(d => `
+              <div style="margin-bottom:14px;">
+                <strong>#${d.rank} ${d.goal_name}</strong><br>
+                Vicdan: ${d.vicdan_alignment} · Confidence: ${d.confidence}<br>
+                Impact: ${d.expected_impact}<br>
+                Actions: ${(d.recommended_actions || []).join(" • ")}
+              </div>
+            `).join("")
+          : "-";
+        output.textContent = JSON.stringify(data, null, 2);
+        status.textContent = "Planner execution completed.";
+      } catch (error) {
+        summary.textContent = "Planning failed.";
+        output.textContent = String(error);
+        status.textContent = "Planner execution failed.";
+      }
+    }
+
+
+
+    function clearChainFilter() {
+      document.getElementById("chainFilter").value = "";
+      loadChain();
+    }
+
+    function escapeChainHtml(value) {
+      return String(value ?? "")
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;");
+    }
+
+    function computeChainReputation(events) {
+      const map = new Map();
+
+      for (const ev of events) {
+        const key = ev.actor_did || ev.actor_name || "unknown";
+        const current = map.get(key) || {
+          actor_did: ev.actor_did || "-",
+          actor_name: ev.actor_name || "-",
+          actor_type: ev.actor_type || "-",
+          reputation_score: 0.5,
+          trust_score: 0.5,
+          contribution_count: 0,
+          last_event_at: ev.created_at || "-",
+        };
+
+        current.reputation_score = Math.max(0, Math.min(1, current.reputation_score + (Number(ev.impact_score || 0) * 0.08)));
+        current.trust_score = Math.max(0, Math.min(1, current.trust_score + Number(ev.trust_delta || 0)));
+        current.contribution_count += 1;
+        current.last_event_at = ev.created_at || current.last_event_at;
+
+        map.set(key, current);
+      }
+
+      return Array.from(map.values()).sort((a, b) => b.reputation_score - a.reputation_score);
+    }
+
+    function renderChainReputation(list) {
+      const root = document.getElementById("chainReputation");
+      if (!list.length) {
+        root.innerHTML = '<div class="result-value">No actors matched the current filter.</div>';
+        return;
+      }
+
+      root.innerHTML = list.map(item => `
+        <div class="chain-rep-item">
+          <strong>${escapeChainHtml(item.actor_name)}</strong><br>
+          <span class="result-value">${escapeChainHtml(item.actor_type)}</span>
+          <div class="chain-meta">${escapeChainHtml(item.actor_did)}</div>
+          <div class="result-value" style="margin-top:8px;">Reputation: ${(item.reputation_score * 100).toFixed(1)}%</div>
+          <div class="chain-progress"><div style="width:${(item.reputation_score * 100).toFixed(1)}%"></div></div>
+          <div class="result-value" style="margin-top:8px;">Trust: ${(item.trust_score * 100).toFixed(1)}%</div>
+          <div class="chain-progress"><div style="width:${(item.trust_score * 100).toFixed(1)}%"></div></div>
+          <div class="result-value" style="margin-top:8px;">Contributions: ${item.contribution_count}</div>
+        </div>
+      `).join("");
+    }
+
+    function renderChainTimeline(events) {
+      const root = document.getElementById("chainTimeline");
+      if (!events.length) {
+        root.innerHTML = '<div class="result-value">No chain events matched the current filter.</div>';
+        return;
+      }
+
+      root.innerHTML = events.map(ev => `
+        <div class="chain-card">
+          <div class="badge-row">
+            <div class="badge"><span class="ok">${escapeChainHtml(ev.event_type || "-")}</span></div>
+            <div class="badge">${escapeChainHtml(ev.actor_name || "-")}</div>
+            <div class="badge">${escapeChainHtml(ev.actor_type || "-")}</div>
+            <div class="badge">Impact: ${Number(ev.impact_score || 0).toFixed(2)}</div>
+            <div class="badge">Trust Δ: ${Number(ev.trust_delta || 0).toFixed(2)}</div>
+          </div>
+          <div class="chain-meta">DID: ${escapeChainHtml(ev.actor_did || "-")}</div>
+          <div class="chain-meta">Hash: ${escapeChainHtml(ev.record_hash || "-")}</div>
+          <div class="chain-meta">Prev: ${escapeChainHtml(ev.prev_hash || "-")}</div>
+          <div class="chain-meta">Created: ${escapeChainHtml(ev.created_at || "-")}</div>
+          <pre style="margin-top:10px;">${escapeChainHtml(JSON.stringify(ev.payload || {}, null, 2))}</pre>
+        </div>
+      `).join("");
+    }
+
+    async function loadChain() {
+      const status = document.getElementById("chainStatus");
+      const limit = Number(document.getElementById("chainLimit").value || 20);
+      const filter = document.getElementById("chainFilter").value.trim().toLowerCase();
+
+      status.textContent = "Loading HOPEchain...";
+
+      try {
+        const res = await fetch(`http://localhost:8000/v1/chain/events?limit=${limit}`);
+        if (!res.ok) {
+          const text = await res.text();
+          throw new Error(`Chain API error ${res.status}: ${text}`);
+        }
+
+        const data = await res.json();
+        let events = Array.isArray(data.events) ? data.events : [];
+
+        if (filter) {
+          events = events.filter(ev =>
+            String(ev.actor_did || "").toLowerCase().includes(filter) ||
+            String(ev.actor_name || "").toLowerCase().includes(filter) ||
+            String(ev.event_type || "").toLowerCase().includes(filter)
+          );
+        }
+
+        const reputation = computeChainReputation(events);
+        const uniqueActors = new Set(events.map(ev => ev.actor_did || ev.actor_name)).size;
+
+        document.getElementById("chainOk").textContent = data.chain_verify?.ok ? "VALID" : "BROKEN";
+        document.getElementById("chainChecked").textContent = data.chain_verify?.checked_records ?? "-";
+        document.getElementById("chainEventCount").textContent = events.length;
+        document.getElementById("chainActorCount").textContent = uniqueActors;
+        document.getElementById("chainVerifyText").textContent = data.chain_verify?.ok
+          ? `Chain verified successfully across ${data.chain_verify.checked_records} records.`
+          : (data.chain_verify?.error || "Chain verification failed.");
+
+        renderChainReputation(reputation);
+        renderChainTimeline(events);
+        status.textContent = "HOPEchain loaded successfully.";
+      } catch (error) {
+        document.getElementById("chainOk").textContent = "ERROR";
+        document.getElementById("chainChecked").textContent = "-";
+        document.getElementById("chainEventCount").textContent = "-";
+        document.getElementById("chainActorCount").textContent = "-";
+        document.getElementById("chainVerifyText").textContent = "No verification result.";
+        document.getElementById("chainReputation").innerHTML = '<div class="result-value">Unable to load reputation view.</div>';
+        document.getElementById("chainTimeline").innerHTML = `<div class="result-value">${escapeChainHtml(String(error))}</div>`;
+        status.textContent = "Failed to load HOPEchain.";
+      }
+    }
+
 
     async function runDemo() {
       const prompt = document.getElementById("prompt").value.trim();
