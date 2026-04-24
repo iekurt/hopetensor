@@ -2,4 +2,5 @@ fastapi
 uvicorn
 httpx
 requests
+email-validator
 
