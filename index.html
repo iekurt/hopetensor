@@ -1353,22 +1353,14 @@
 
   
   <script>
-    const API_BASE = (() => {
-      const host = window.location.hostname;
-      const port = window.location.port;
-      if (host === "localhost" || host === "127.0.0.1") {
-        if (port === "3000" || port === "5500" || port === "8080") {
-          return "http://localhost:8000";
-        }
-        return "";
-      }
-      return "/api";
-    })();
+<script>
+const API_BASE = "https://hopetensor.onrender.com";
 
-    function apiUrl(path) {
-      return `${API_BASE}${path}`;
-    }
-  </script>
+function apiUrl(path) {
+  return API_BASE + path;
+}
+</script>
+
 
   <script>
     function setStatus(message, kind = "") {
