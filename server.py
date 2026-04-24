@@ -244,3 +244,20 @@ def profile_alias(authorization: Optional[str] = Header(default=None)):
 @app.get("/me")
 def me_alias(authorization: Optional[str] = Header(default=None)):
     return did_profile(authorization)
+
+
+@app.post("/v1/reason")
+def reason(payload: dict):
+    prompt = payload.get("prompt", "")
+
+    # basit mock (şimdilik)
+    return {
+        "answer": f"[HOPEtensor] {prompt[:200]}...",
+        "confidence": 0.91,
+        "vicdan_status": "aligned",
+        "trace_id": "trace_" + str(int(time.time())),
+        "selected_nodes": ["local", "logic", "safety"],
+        "verification_summary": "All nodes agree. No contradiction detected."
+    }
+
+
