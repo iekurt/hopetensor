@@ -8,6 +8,9 @@ import sqlite3
 import uuid
 import re
 from datetime import datetime
+from fastapi import FastAPI
+
+app = FastAPI()
 
 APP_NAME = "HOPEtensor Coordinator"
 APP_VERSION = "2.2.0"

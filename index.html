@@ -1,1790 +1,603 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>HOPEverse — Civilization Operating System</title>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>HOPEverse DID Dashboard</title>
+  <meta name="description" content="HOPEverse DID profile dashboard — ethics before power." />
   <style>
     :root {
-      --bg: #0b0f1a;
-      --bg-2: #101827;
-      --panel: rgba(255,255,255,0.06);
-      --panel-strong: rgba(255,255,255,0.1);
-      --text: #f5f7fb;
-      --muted: #a9b4c7;
-      --accent: #4da3ff;
-      --accent-2: #71e4ff;
-      --line: rgba(255,255,255,0.12);
-      --ok: #6ee7b7;
-      --warn: #fbbf24;
-      --danger: #fb7185;
-      --shadow: 0 20px 60px rgba(0,0,0,0.45);
-      --radius: 22px;
-      --max: 1240px;
+      --bg: #070A12;
+      --bg2: #0B1020;
+      --panel: rgba(255,255,255,.075);
+      --panel2: rgba(255,255,255,.11);
+      --stroke: rgba(255,255,255,.16);
+      --text: #EEF4FF;
+      --muted: rgba(238,244,255,.68);
+      --soft: rgba(238,244,255,.42);
+      --hope: #55F0B0;
+      --hope2: #6EA8FF;
+      --gold: #FFD166;
+      --danger: #FF6B8A;
+      --ok: #55F0B0;
+      --shadow: 0 24px 90px rgba(0,0,0,.48);
+      --radius: 28px;
+      --radius2: 18px;
+      --max: 1180px;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
     }
 
     * { box-sizing: border-box; }
     html { scroll-behavior: smooth; }
     body {
       margin: 0;
-      font-family: Inter, Arial, Helvetica, sans-serif;
-      background:
-        radial-gradient(circle at top right, rgba(77,163,255,0.18), transparent 28%),
-        radial-gradient(circle at top left, rgba(113,228,255,0.08), transparent 24%),
-        linear-gradient(180deg, #0b0f1a 0%, #0d1220 50%, #0b0f1a 100%);
+      min-height: 100vh;
       color: var(--text);
+      background:
+        radial-gradient(circle at 18% 12%, rgba(85,240,176,.18), transparent 30%),
+        radial-gradient(circle at 78% 18%, rgba(110,168,255,.20), transparent 34%),
+        radial-gradient(circle at 52% 92%, rgba(255,209,102,.10), transparent 28%),
+        linear-gradient(145deg, var(--bg), var(--bg2));
+      overflow-x: hidden;
     }
 
-    a { color: inherit; text-decoration: none; }
-
-    .container {
-      width: min(var(--max), calc(100% - 40px));
-      margin: 0 auto;
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      background-image:
+        linear-gradient(rgba(255,255,255,.04) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,.04) 1px, transparent 1px);
+      background-size: 56px 56px;
+      mask-image: linear-gradient(to bottom, rgba(0,0,0,.8), transparent 78%);
     }
+
+    a { color: inherit; }
+    button, input, textarea { font: inherit; }
+
+    .wrap { width: min(var(--max), calc(100% - 40px)); margin: 0 auto; }
 
     .nav {
       position: sticky;
       top: 0;
-      z-index: 50;
-      backdrop-filter: blur(18px);
-      background: rgba(11,15,26,0.72);
-      border-bottom: 1px solid rgba(255,255,255,0.08);
+      z-index: 10;
+      backdrop-filter: blur(22px);
+      background: linear-gradient(to bottom, rgba(7,10,18,.86), rgba(7,10,18,.48));
+      border-bottom: 1px solid rgba(255,255,255,.08);
     }
 
     .nav-inner {
+      height: 76px;
       display: flex;
       align-items: center;
       justify-content: space-between;
-      padding: 16px 0;
-      gap: 24px;
-    }
-
-    .brand {
-      font-size: 1.2rem;
-      font-weight: 800;
-      letter-spacing: 0.02em;
-    }
-
-    .brand span { color: var(--accent); }
-
-    .nav-links {
-      display: flex;
-      flex-wrap: wrap;
       gap: 18px;
-      color: var(--muted);
-      font-size: 0.95rem;
     }
 
-    .btn {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      gap: 10px;
-      border-radius: 999px;
-      padding: 14px 22px;
-      font-weight: 700;
-      border: 1px solid transparent;
-      transition: 0.2s ease;
-      cursor: pointer;
+    .brand { display: flex; align-items: center; gap: 12px; min-width: 220px; }
+    .mark {
+      width: 42px; height: 42px; border-radius: 16px;
+      display: grid; place-items: center;
+      background: linear-gradient(135deg, rgba(85,240,176,.95), rgba(110,168,255,.95));
+      box-shadow: 0 12px 40px rgba(85,240,176,.2);
+      color: #071018; font-weight: 900;
     }
+    .brand b { display: block; letter-spacing: -.03em; }
+    .brand span { display: block; color: var(--muted); font-size: 12px; margin-top: 2px; }
 
-    .btn-primary {
-      background: linear-gradient(90deg, var(--accent), var(--accent-2));
-      color: white;
-      box-shadow: 0 10px 30px rgba(77,163,255,0.25);
-    }
-
-    .btn-primary:hover { transform: translateY(-1px); }
-
-    .btn-secondary {
-      background: rgba(255,255,255,0.04);
-      border-color: rgba(255,255,255,0.12);
+    .nav-pills { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; justify-content: flex-end; }
+    .pill, .btn {
+      border: 1px solid var(--stroke);
+      background: rgba(255,255,255,.06);
       color: var(--text);
-    }
-
-    .hero {
-      padding: 74px 0 40px;
-    }
-
-    .hero-grid {
-      display: grid;
-      grid-template-columns: 1.1fr 0.9fr;
-      gap: 34px;
-      align-items: center;
-    }
-
-    .eyebrow {
-      display: inline-flex;
-      align-items: center;
-      gap: 10px;
-      padding: 8px 14px;
+      padding: 10px 14px;
       border-radius: 999px;
-      background: rgba(77,163,255,0.12);
-      border: 1px solid rgba(77,163,255,0.26);
-      color: #cde4ff;
-      font-size: 0.9rem;
-      font-weight: 700;
-      margin-bottom: 18px;
+      text-decoration: none;
+      cursor: pointer;
+      transition: transform .18s ease, background .18s ease, border-color .18s ease;
     }
+    .pill:hover, .btn:hover { transform: translateY(-1px); background: rgba(255,255,255,.10); border-color: rgba(255,255,255,.28); }
+    .btn.primary { border: 0; color: #071018; font-weight: 800; background: linear-gradient(135deg, var(--hope), var(--hope2)); }
+    .btn.ghost { background: transparent; }
+    .btn.danger { color: #fff; border-color: rgba(255,107,138,.4); background: rgba(255,107,138,.12); }
+    .btn:disabled { opacity: .55; cursor: not-allowed; transform: none; }
 
-    h1 {
-      font-size: clamp(2.7rem, 5vw, 5rem);
-      line-height: 0.98;
-      margin: 0 0 18px;
-      letter-spacing: -0.04em;
+    .hero { padding: 72px 0 42px; }
+    .hero-grid { display: grid; grid-template-columns: 1.05fr .95fr; gap: 28px; align-items: stretch; }
+    .eyebrow {
+      display: inline-flex; align-items: center; gap: 8px;
+      padding: 8px 12px; border-radius: 999px;
+      border: 1px solid rgba(85,240,176,.32);
+      background: rgba(85,240,176,.08);
+      color: rgba(238,244,255,.86);
+      margin-bottom: 20px;
     }
-
-    .gradient {
-      background: linear-gradient(90deg, #ffffff, #93c5fd 45%, #67e8f9 100%);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      background-clip: text;
-    }
-
-    .lead {
-      color: var(--muted);
-      font-size: 1.15rem;
-      line-height: 1.7;
-      max-width: 760px;
-      margin-bottom: 26px;
-    }
-
-    .hero-actions {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 14px;
-      margin-bottom: 22px;
-    }
-
-    .hero-metrics {
-      display: grid;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
-      gap: 14px;
-      margin-top: 30px;
-    }
-
-    .metric, .card, .demo-panel, .flow-box, .panel {
-      background: var(--panel);
-      border: 1px solid var(--line);
-      border-radius: var(--radius);
-      box-shadow: var(--shadow);
-    }
-
-    .metric {
-      padding: 18px;
-    }
-
-    .metric strong {
-      display: block;
-      font-size: 1.5rem;
-      color: white;
-      margin-bottom: 6px;
-    }
-
-    .metric span {
-      color: var(--muted);
-      font-size: 0.95rem;
-    }
-
-    .hero-visual {
-      padding: 24px;
-      position: relative;
-      overflow: hidden;
-    }
-
-    .hero-visual::before {
-      content: "";
-      position: absolute;
-      inset: -30% auto auto -30%;
-      width: 320px;
-      height: 320px;
-      background: radial-gradient(circle, rgba(77,163,255,0.22), transparent 65%);
-      pointer-events: none;
-    }
-
-    .visual-grid {
-      display: grid;
-      gap: 14px;
-      position: relative;
-      z-index: 1;
-    }
-
-    .visual-row {
-      display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 14px;
-    }
-
-    .mini-card {
-      background: rgba(255,255,255,0.05);
-      border: 1px solid rgba(255,255,255,0.1);
-      border-radius: 18px;
-      padding: 18px;
-      min-height: 110px;
-    }
-
-    .mini-card h4 {
-      margin: 0 0 8px;
-      font-size: 1rem;
-    }
-
-    .mini-card p {
-      margin: 0;
-      color: var(--muted);
-      font-size: 0.95rem;
-      line-height: 1.55;
-    }
-
-    .pipeline {
-      padding: 18px;
-      display: grid;
-      grid-template-columns: repeat(5, minmax(0, 1fr));
-      gap: 10px;
-      align-items: center;
-    }
-
-    .pipe-node {
-      padding: 14px 12px;
-      text-align: center;
-      border-radius: 16px;
-      background: rgba(255,255,255,0.05);
-      border: 1px solid rgba(255,255,255,0.12);
-      font-weight: 700;
-      font-size: 0.95rem;
-    }
-
-    .pipe-arrow {
-      text-align: center;
-      color: var(--accent);
-      font-size: 1.3rem;
-      font-weight: 800;
-    }
-
-    section {
-      padding: 34px 0;
-    }
-
-    .section-head {
-      margin-bottom: 22px;
-    }
-
-    .section-head h2 {
-      font-size: clamp(2rem, 3vw, 3rem);
-      margin: 0 0 10px;
-      letter-spacing: -0.03em;
-    }
-
-    .section-head p {
-      margin: 0;
-      color: var(--muted);
-      line-height: 1.7;
-      max-width: 820px;
-    }
-
-    .grid-3 {
-      display: grid;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
-      gap: 18px;
-    }
-
-    .grid-4 {
-      display: grid;
-      grid-template-columns: repeat(4, minmax(0, 1fr));
-      gap: 18px;
-    }
+    .dot { width: 8px; height: 8px; border-radius: 99px; background: var(--hope); box-shadow: 0 0 24px var(--hope); }
+    h1 { margin: 0; font-size: clamp(42px, 7vw, 82px); line-height: .92; letter-spacing: -.07em; }
+    .gradient { background: linear-gradient(135deg, #fff, var(--hope), var(--hope2)); -webkit-background-clip: text; background-clip: text; color: transparent; }
+    .lead { max-width: 760px; margin: 22px 0 0; color: var(--muted); font-size: clamp(17px, 2.2vw, 21px); line-height: 1.62; }
+    .hero-actions { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 28px; }
 
     .card {
-      padding: 22px;
-    }
-
-    .card h3 {
-      margin: 0 0 10px;
-      font-size: 1.15rem;
-    }
-
-    .card p, .card li {
-      color: var(--muted);
-      line-height: 1.65;
-      font-size: 0.98rem;
-    }
-
-    .card ul {
-      padding-left: 18px;
-      margin: 12px 0 0;
-    }
-
-    .problem-row {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 20px;
-    }
-
-    .flow {
-      display: grid;
-      grid-template-columns: repeat(6, minmax(0, 1fr));
-      gap: 12px;
-      align-items: stretch;
-    }
-
-    .flow-box {
-      padding: 18px 12px;
-      text-align: center;
-      display: flex;
-      flex-direction: column;
-      justify-content: center;
-      min-height: 120px;
-    }
-
-    .flow-box strong {
-      color: white;
-      margin-bottom: 8px;
-      font-size: 1rem;
-    }
-
-    .flow-box span {
-      color: var(--muted);
-      font-size: 0.92rem;
-      line-height: 1.45;
-    }
-
-    .stack {
-      display: grid;
-      gap: 16px;
-    }
-
-    .panel {
-      padding: 24px;
-    }
-
-    .demo-wrap {
-      display: grid;
-      grid-template-columns: 0.95fr 1.05fr;
-      gap: 20px;
-      align-items: start;
-    }
-
-    .demo-panel {
-      padding: 24px;
-    }
-
-    .demo-panel h3 {
-      margin: 0 0 16px;
-      font-size: 1.2rem;
-    }
-
-    label {
-      display: block;
-      margin-bottom: 8px;
-      color: var(--muted);
-      font-size: 0.94rem;
-      font-weight: 700;
-    }
-
-    textarea, input, select {
-      width: 100%;
-      background: rgba(255,255,255,0.04);
-      color: white;
-      border: 1px solid rgba(255,255,255,0.14);
-      border-radius: 16px;
-      padding: 14px 16px;
-      font: inherit;
-      outline: none;
-      transition: border-color 0.2s ease, box-shadow 0.2s ease;
-    }
-
-    textarea {
-      min-height: 136px;
-      resize: vertical;
-      line-height: 1.55;
-    }
-
-    textarea:focus, input:focus, select:focus {
-      border-color: rgba(77,163,255,0.7);
-      box-shadow: 0 0 0 4px rgba(77,163,255,0.12);
-    }
-
-    .form-row {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 14px;
-      margin-top: 14px;
-    }
-
-    .demo-actions {
-      display: flex;
-      gap: 12px;
-      flex-wrap: wrap;
-      margin-top: 18px;
-    }
-
-    .status {
-      margin-top: 16px;
-      min-height: 24px;
-      color: var(--muted);
-      font-size: 0.95rem;
-    }
-
-    .result {
-      margin-top: 18px;
-      padding: 18px;
-      border-radius: 18px;
-      background: rgba(255,255,255,0.04);
-      border: 1px solid rgba(255,255,255,0.1);
-      display: grid;
-      gap: 12px;
-    }
-
-    .result-block {
-      padding: 14px 16px;
-      border-radius: 14px;
-      background: rgba(255,255,255,0.04);
-      border: 1px solid rgba(255,255,255,0.08);
-    }
-
-    .result-label {
-      display: block;
-      font-size: 0.82rem;
-      color: var(--accent-2);
-      margin-bottom: 6px;
-      text-transform: uppercase;
-      letter-spacing: 0.08em;
-      font-weight: 800;
-    }
-
-    .result-value {
-      color: white;
-      line-height: 1.6;
-      white-space: pre-wrap;
-      word-break: break-word;
-    }
-
-    .badge-row {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 10px;
-    }
-
-    .badge {
-      display: inline-flex;
-      align-items: center;
-      padding: 9px 12px;
-      border-radius: 999px;
-      font-size: 0.88rem;
-      font-weight: 700;
-      border: 1px solid rgba(255,255,255,0.1);
-      background: rgba(255,255,255,0.05);
-    }
-
-    .ok { color: var(--ok); }
-    .warn { color: var(--warn); }
-    .danger { color: var(--danger); }
-
-    
-    .plan-wrap {
-      display: grid;
-      grid-template-columns: 0.95fr 1.05fr;
-      gap: 20px;
-      align-items: start;
-    }
-
-    .plan-json {
-      min-height: 220px;
-      font-family: Consolas, monospace;
-      font-size: 0.9rem;
-    }
-
-    .plan-summary {
-      padding: 14px 16px;
-      border-radius: 14px;
-      background: rgba(255,255,255,0.04);
-      border: 1px solid rgba(255,255,255,0.08);
-      color: white;
-      line-height: 1.6;
-      white-space: pre-wrap;
-    }
-
-
-
-    .food-wrap {
-      display: grid;
-      grid-template-columns: 0.95fr 1.05fr;
-      gap: 20px;
-      align-items: start;
-    }
-
-    .chain-wrap {
-      display: grid;
-      grid-template-columns: 1.1fr 0.9fr;
-      gap: 20px;
-      align-items: start;
-    }
-
-    .chain-grid {
-      display: grid;
-      gap: 14px;
-    }
-
-    .chain-card {
-      padding: 16px;
-      border-radius: 16px;
-      background: rgba(255,255,255,0.04);
-      border: 1px solid rgba(255,255,255,0.08);
-    }
-
-    .chain-card pre {
-      margin: 0;
-      white-space: pre-wrap;
-      word-break: break-word;
-      font-family: Consolas, Menlo, monospace;
-      font-size: 0.84rem;
-      color: #dce9ff;
-    }
-
-    .chain-rep {
-      display: grid;
-      gap: 12px;
-    }
-
-    .chain-rep-item {
-      padding: 14px 16px;
-      border-radius: 16px;
-      background: rgba(255,255,255,0.04);
-      border: 1px solid rgba(255,255,255,0.08);
-    }
-
-    .chain-progress {
-      width: 100%;
-      height: 10px;
-      border-radius: 999px;
-      background: rgba(255,255,255,0.08);
-      overflow: hidden;
-      margin-top: 8px;
-    }
-
-    .chain-progress > div {
-      height: 100%;
-      border-radius: 999px;
-      background: linear-gradient(90deg, #6ee7b7, #4da3ff);
-    }
-
-    .chain-meta {
-      font-family: Consolas, Menlo, monospace;
-      font-size: 0.82rem;
-      color: #dce9ff;
-      word-break: break-word;
-      margin-top: 8px;
-    }
-
-    .roadmap {
-      display: grid;
-      grid-template-columns: repeat(4, minmax(0, 1fr));
-      gap: 18px;
-    }
-
-    .roadmap .card strong {
-      display: inline-block;
-      margin-bottom: 10px;
-      color: var(--accent-2);
-      font-size: 0.9rem;
-      letter-spacing: 0.06em;
-      text-transform: uppercase;
-    }
-
-    .cta {
-      padding: 34px;
-      text-align: center;
-      background:
-        radial-gradient(circle at 50% 0%, rgba(77,163,255,0.18), transparent 35%),
-        rgba(255,255,255,0.05);
-      border: 1px solid rgba(255,255,255,0.1);
-      border-radius: 28px;
+      position: relative;
+      border: 1px solid var(--stroke);
+      background: linear-gradient(145deg, rgba(255,255,255,.095), rgba(255,255,255,.045));
+      backdrop-filter: blur(20px);
+      border-radius: var(--radius);
       box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+    .card::before {
+      content: ""; position: absolute; inset: 0; pointer-events: none;
+      background: radial-gradient(circle at 18% 0%, rgba(85,240,176,.14), transparent 34%), radial-gradient(circle at 100% 16%, rgba(110,168,255,.14), transparent 34%);
+    }
+    .card > * { position: relative; }
+    .card-pad { padding: 26px; }
+
+    .status-card { min-height: 100%; display: flex; flex-direction: column; justify-content: space-between; gap: 18px; }
+    .status-top { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+    .status-title { margin: 0; font-size: 18px; letter-spacing: -.02em; }
+    .status-chip { padding: 8px 11px; border-radius: 999px; font-size: 13px; color: #071018; background: var(--hope); font-weight: 800; }
+    .metric-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+    .metric { border: 1px solid rgba(255,255,255,.12); border-radius: 18px; padding: 16px; background: rgba(0,0,0,.16); }
+    .metric small { display: block; color: var(--soft); margin-bottom: 8px; }
+    .metric strong { display: block; font-size: 24px; letter-spacing: -.04em; }
+    .console {
+      margin-top: 8px; padding: 16px; border-radius: 18px;
+      background: rgba(2,6,14,.58); border: 1px solid rgba(255,255,255,.1);
+      color: rgba(238,244,255,.75); min-height: 92px; white-space: pre-wrap; overflow-wrap: anywhere;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 13px; line-height: 1.5;
     }
 
-    .cta h2 {
-      margin: 0 0 12px;
-      font-size: clamp(2rem, 4vw, 3.2rem);
+    .section { padding: 32px 0; }
+    .section-head { display: flex; align-items: end; justify-content: space-between; gap: 20px; margin-bottom: 18px; }
+    h2 { margin: 0; font-size: clamp(28px, 4vw, 44px); letter-spacing: -.055em; }
+    .sub { color: var(--muted); margin: 8px 0 0; line-height: 1.55; }
+
+    .app-grid { display: grid; grid-template-columns: 390px 1fr; gap: 22px; align-items: start; }
+    .tabs { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 16px; }
+    .tab { border: 1px solid var(--stroke); color: var(--muted); background: rgba(255,255,255,.05); border-radius: 16px; padding: 12px; cursor: pointer; }
+    .tab.active { color: #071018; background: linear-gradient(135deg, var(--hope), var(--hope2)); border: 0; font-weight: 850; }
+
+    .form { display: grid; gap: 12px; }
+    label { display: grid; gap: 7px; color: rgba(238,244,255,.82); font-size: 13px; }
+    input, textarea {
+      width: 100%; color: var(--text);
+      background: rgba(0,0,0,.22); border: 1px solid rgba(255,255,255,.14);
+      border-radius: 16px; padding: 13px 14px; outline: none;
     }
+    input:focus, textarea:focus { border-color: rgba(85,240,176,.64); box-shadow: 0 0 0 4px rgba(85,240,176,.1); }
+    textarea { min-height: 110px; resize: vertical; }
 
-    .cta p {
-      margin: 0 auto 20px;
-      max-width: 760px;
-      color: var(--muted);
-      line-height: 1.7;
+    .profile-shell { display: grid; gap: 16px; }
+    .profile-hero {
+      display: grid; grid-template-columns: auto 1fr auto; gap: 16px; align-items: center;
+      padding: 20px; border-radius: 24px;
+      border: 1px solid rgba(255,255,255,.12); background: rgba(0,0,0,.17);
     }
-
-    footer {
-      padding: 30px 0 60px;
-      color: var(--muted);
-      font-size: 0.95rem;
+    .avatar {
+      width: 74px; height: 74px; border-radius: 24px;
+      display: grid; place-items: center; color: #071018; font-weight: 950; font-size: 28px;
+      background: linear-gradient(135deg, var(--gold), var(--hope));
+      box-shadow: 0 20px 60px rgba(255,209,102,.14);
     }
+    .profile-hero h3 { margin: 0; font-size: 25px; letter-spacing: -.04em; }
+    .profile-hero p { margin: 5px 0 0; color: var(--muted); overflow-wrap: anywhere; }
+    .did-badge { padding: 9px 12px; border-radius: 999px; color: #071018; background: #fff; font-weight: 900; font-size: 12px; }
 
-    @media (max-width: 1100px) {
-      .hero-grid,
-      .demo-wrap,
-      .plan-wrap,
-      .chain-wrap,
-      .food-wrap,
-      .problem-row,
-      .grid-3,
-      .grid-4,
-      .roadmap,
-      .flow {
-        grid-template-columns: 1fr;
-      }
+    .detail-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
+    .detail { padding: 16px; border-radius: 18px; background: rgba(255,255,255,.055); border: 1px solid rgba(255,255,255,.1); min-height: 88px; }
+    .detail small { color: var(--soft); display: block; margin-bottom: 8px; }
+    .detail b, .detail span { overflow-wrap: anywhere; }
 
-      .pipeline {
-        grid-template-columns: 1fr;
-      }
+    .principles { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
+    .principle { min-height: 150px; padding: 18px; border-radius: 24px; border: 1px solid rgba(255,255,255,.12); background: rgba(255,255,255,.055); }
+    .principle .icon { font-size: 25px; margin-bottom: 18px; }
+    .principle b { display: block; font-size: 17px; margin-bottom: 8px; }
+    .principle p { margin: 0; color: var(--muted); line-height: 1.5; }
 
-      .pipe-arrow { display: none; }
+    .toast {
+      position: fixed; right: 22px; bottom: 22px; z-index: 20;
+      max-width: min(420px, calc(100% - 44px));
+      padding: 14px 16px; border-radius: 18px; border: 1px solid rgba(255,255,255,.16);
+      background: rgba(7,10,18,.88); backdrop-filter: blur(18px); box-shadow: var(--shadow);
+      display: none; color: var(--text); line-height: 1.45;
     }
+    .toast.show { display: block; animation: pop .22s ease; }
+    @keyframes pop { from { transform: translateY(8px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
 
-    @media (max-width: 760px) {
-      .nav-links { display: none; }
+    .hidden { display: none !important; }
+    .muted { color: var(--muted); }
+    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+
+    @media (max-width: 920px) {
+      .hero-grid, .app-grid { grid-template-columns: 1fr; }
+      .principles { grid-template-columns: repeat(2, 1fr); }
+      .profile-hero { grid-template-columns: auto 1fr; }
+      .profile-hero .did-badge { grid-column: 1 / -1; width: fit-content; }
+    }
+    @media (max-width: 620px) {
+      .wrap { width: min(var(--max), calc(100% - 24px)); }
+      .nav-inner { height: auto; padding: 14px 0; align-items: flex-start; }
+      .brand { min-width: auto; }
+      .nav-pills .pill { display: none; }
       .hero { padding-top: 42px; }
-      .hero-metrics,
-      .form-row { grid-template-columns: 1fr; }
-      .container { width: min(var(--max), calc(100% - 24px)); }
-      h1 { line-height: 1.02; }
+      .metric-grid, .detail-grid, .principles { grid-template-columns: 1fr; }
+      .hero-actions { flex-direction: column; }
+      .btn, .pill { text-align: center; }
     }
   </style>
 </head>
 <body>
-  <nav class="nav">
-    <div class="container nav-inner">
-      <div><div class="brand">HOPE<span>verse</span></div><div style="font-size:12px;color:var(--muted);margin-top:4px;letter-spacing:.08em;">crafted by Erhan</div></div>
-      <div class="nav-links">
-        <a href="#problem">Problem</a>
-        <a href="#architecture">Architecture</a>
-        <a href="#demo">Live Demo</a>
-        <a href="#plan">HOPEcore Plan</a>
-        <a href="#food">HOPEverse Food</a>
-        <a href="#chain">HOPEchain</a>
-        <a href="#trust">Trust Layer</a>
-        <a href="#verticals">11 Verticals</a>
-        <a href="#roadmap">2030</a>
-        <a href="#contact">Contact</a>
-      </div>
-      <a class="btn btn-secondary" href="#demo">Run Demo</a>
-    </div>
-  </nav>
-
-  <header class="hero">
-    <div class="container hero-grid">
-      <div>
-        <div class="eyebrow">Civilization Operating System • Powered by HOPEtensor</div>
-        <h1>
-          Build a <span class="gradient">trustable civilization stack</span>,
-          not just another AI product.
-        </h1>
-        <p class="lead">
-          HOPEverse is the civilization operating system. HOPEtensor is its intelligence engine. Together they connect reasoning, planning, identity, governance, trust, and real-world verticals into one coordinated architecture.
-        </p>
-        <div class="hero-actions">
-          <a class="btn btn-primary" href="#demo">Run Live Demo</a>
-          <a class="btn btn-secondary" href="#architecture">See Architecture</a>
-        </div>
-        <div class="hero-metrics">
-          <div class="metric">
-            <strong>Multi-Node</strong>
-            <span>Local, external, retrieval, and domain AI paths</span>
-          </div>
-          <div class="metric">
-            <strong>Verification</strong>
-            <span>Agreement, contradiction, evidence, and confidence</span>
-          </div>
-          <div class="metric">
-            <strong>Vicdan</strong>
-            <span>System-level ethics and governed final release</span>
-          </div>
+  <header class="nav">
+    <div class="wrap nav-inner">
+      <div class="brand">
+        <div class="mark">H</div>
+        <div>
+          <b>HOPEverse</b>
+          <span>Ethics before power</span>
         </div>
       </div>
-
-      <div class="hero-visual panel">
-        <div class="visual-grid">
-          <div class="visual-row">
-            <div class="mini-card">
-              <h4>Execution Layer</h4>
-              <p>Not another model. A governed runtime for reasoning, verification, and policy control.</p>
-            </div>
-            <div class="mini-card">
-              <h4>Trust Layer</h4>
-              <p>Every answer comes with confidence and trace, not just raw output.</p>
-            </div>
-          </div>
-          <div class="visual-row">
-            <div class="mini-card">
-              <h4>AI Agents</h4>
-              <p>Transform agents from tools into trusted execution units.</p>
-            </div>
-            <div class="mini-card">
-              <h4>Auditability</h4>
-              <p>Observer captures node contributions, decisions, and final result.</p>
-            </div>
-          </div>
-          <div class="pipeline">
-            <div class="pipe-node">Request</div>
-            <div class="pipe-arrow">→</div>
-            <div class="pipe-node">Nodes</div>
-            <div class="pipe-arrow">→</div>
-            <div class="pipe-node">Verify</div>
-            <div class="pipe-arrow">→</div>
-            <div class="pipe-node">Vicdan</div>
-            <div class="pipe-arrow">→</div>
-            <div class="pipe-node">Trusted Output</div>
-          </div>
-        </div>
-      </div>
+      <nav class="nav-pills">
+        <a class="pill" href="#dashboard">DID Dashboard</a>
+        <a class="pill" href="#principles">Principles</a>
+        <button class="btn ghost" id="refreshBtn" type="button">Refresh API</button>
+      </nav>
     </div>
   </header>
 
-  <section id="problem">
-    <div class="container">
-      <div class="section-head">
-        <h2>The problem is not model size. It is execution architecture.</h2>
-        <p>
-          Today, most AI systems still run as a fragile linear chain: user → agent → output. That creates hallucination,
-          weak trust, no structured disagreement handling, and almost no auditability at runtime.
-        </p>
-      </div>
-      <div class="problem-row">
-        <div class="card">
-          <h3>Conventional AI Flow</h3>
-          <p><strong>User → Model → Output</strong></p>
-          <ul>
-            <li>Single-path reasoning</li>
-            <li>No internal verification</li>
-            <li>No confidence signal</li>
-            <li>No explicit ethics layer</li>
-            <li>No decision trace</li>
-          </ul>
-        </div>
-        <div class="card">
-          <h3>HOPEverse Flow</h3>
-          <p><strong>Request → Nodes → Verification → Vicdan → Trace</strong></p>
-          <ul>
-            <li>Multi-node reasoning</li>
-            <li>Verification before release</li>
-            <li>Confidence scoring</li>
-            <li>System-level conscience</li>
-            <li>Auditable runtime</li>
-          </ul>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <section id="architecture">
-    <div class="container">
-      <div class="section-head">
-        <h2>Architecture</h2>
-        <p>
-          HOPEverse is the system. HOPEtensor is the governed multi-node intelligence engine inside it. The goal is not only trusted model output, but trusted coordination across the civilization stack.
-        </p>
-      </div>
-      <div class="flow">
-        <div class="flow-box">
-          <strong>1. Request Intake</strong>
-          <span>Normalize prompt, policy, context, and execution mode.</span>
-        </div>
-        <div class="flow-box">
-          <strong>2. Node Selection</strong>
-          <span>Select local, external, retrieval, or domain nodes.</span>
-        </div>
-        <div class="flow-box">
-          <strong>3. Parallel Reasoning</strong>
-          <span>Run multiple reasoning paths concurrently.</span>
-        </div>
-        <div class="flow-box">
-          <strong>4. Verification</strong>
-          <span>Compare outputs using agreement, contradiction, evidence, and structure.</span>
-        </div>
-        <div class="flow-box">
-          <strong>5. Vicdan</strong>
-          <span>Apply ethics, risk scoring, and context-aware decision control.</span>
-        </div>
-        <div class="flow-box">
-          <strong>6. Trace</strong>
-          <span>Persist node contributions, scores, decisions, and final output.</span>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <section>
-    <div class="container">
-      <div class="section-head">
-        <h2>Core system blocks</h2>
-        <p>
-          The system is modular by design, so execution, verification, ethics, and observability remain explicit rather than hidden inside one model.
-        </p>
-      </div>
-      <div class="grid-4">
-        <div class="card">
-          <h3>Reasoning Nodes</h3>
-          <p>Local models, external LLMs, retrieval nodes, and future domain-specific engines.</p>
-        </div>
-        <div class="card">
-          <h3>Verification Engine</h3>
-          <p>Agreement scoring, contradiction detection, evidence weighting, and confidence calculation.</p>
-        </div>
-        <div class="card">
-          <h3>Vicdan Layer</h3>
-          <p>Hard rule enforcement, risk scoring, context checks, and final decision state.</p>
-        </div>
-        <div class="card">
-          <h3>Observer Layer</h3>
-          <p>Full trace persistence: inputs, nodes, verification summary, Vicdan decision, output.</p>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <section>
-    <div class="container">
-      <div class="section-head">
-        <h2>Positioning</h2>
-        <p>
-          The market already has models, frameworks, and marketplaces. What it still lacks is a trust, identity, governance, and execution layer.
-        </p>
-      </div>
-      <div class="grid-3">
-        <div class="card">
-          <h3>Models</h3>
-          <p>Powerful generation, but single-path and opaque at runtime.</p>
-        </div>
-        <div class="card">
-          <h3>Frameworks</h3>
-          <p>Useful orchestration, but weak on verification, confidence, and governance.</p>
-        </div>
-        <div class="card">
-          <h3>HOPEverse</h3>
-          <p><strong>Civilization Operating System</strong> with HOPEtensor, HOPEchain, DID, Governance, and real-world vertical coordination built in.</p>
-        </div>
-      </div>
-      <div class="panel" style="margin-top:18px; text-align:center;">
-        <strong style="font-size:1.2rem; display:block; margin-bottom:8px;">Marketplace = App Store</strong>
-        <span style="color:var(--muted); font-size:1.05rem;">HOPEverse = Operating System • HOPEtensor = Intelligence Engine</span>
-      </div>
-    </div>
-  </section>
-
-  <section id="demo">
-    <div class="container">
-      <div class="section-head">
-        <h2>Live demo</h2>
-        <p>
-          This demo uses the HOPEverse runtime directly. It is designed to show how HOPEtensor, HOPEcore, HOPEchain, DID-style trust, governance, and vertical planning work together inside one system.
-        </p>
-      </div>
-      <div class="demo-wrap">
-        <div class="demo-panel">
-          <h3>Run HOPEverse Intelligence</h3>
-          <label for="prompt">Prompt</label>
-          <textarea id="prompt">Explain why AI hallucinations happen and how to reduce them in production systems.</textarea>
-
-          <div class="form-row">
-            <div>
-              <label for="policy">Policy Profile</label>
-              <select id="policy">
-                <option value="default">default</option>
-                <option value="strict">strict</option>
-                <option value="safe">safe</option>
-              </select>
-            </div>
-            <div>
-              <label for="mode">Mode</label>
-              <select id="mode">
-                <option value="">normal</option>
-                <option value="strict">strict</option>
-              </select>
-            </div>
-          </div>
-
-          <div class="demo-actions">
-            <button class="btn btn-primary" onclick="runDemo()">Run Live Demo</button>
-            <button class="btn btn-secondary" onclick="loadSample()">Load Pitch Prompt</button>
-          </div>
-
-          <div class="status" id="status">Waiting for execution.</div>
-        </div>
-
-        <div class="demo-panel">
-          <h3>Execution Output</h3>
-          <div class="result">
-            <div class="result-block">
-              <span class="result-label">Answer</span>
-              <div class="result-value" id="answer">No output yet.</div>
-            </div>
-            <div class="badge-row">
-              <div class="badge"><span class="ok">Confidence:</span>&nbsp;<span id="confidence">-</span></div>
-              <div class="badge"><span class="warn">Vicdan:</span>&nbsp;<span id="vicdan">-</span></div>
-              <div class="badge"><span class="ok">Trace:</span>&nbsp;<span id="trace">-</span></div>
-            </div>
-            <div class="result-block">
-              <span class="result-label">Selected Nodes</span>
-              <div class="result-value" id="nodes">-</div>
-            </div>
-            <div class="result-block">
-              <span class="result-label">Verification Summary</span>
-              <div class="result-value" id="summary">-</div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  </section>
-
-
-  <section id="plan">
-    <div class="container">
-      <div class="section-head">
-        <h2>HOPEcore planning demo</h2>
-        <p>
-          Run civilization-priority planning with goals, resource constraints, and ethics weights.
-          This calls <code>/v1/plan</code> and returns ranked goals, actions, confidence, and Vicdan alignment.
-        </p>
-      </div>
-      <div class="plan-wrap">
-        <div class="demo-panel">
-          <h3>Run HOPEcore Plan</h3>
-          <label for="planPayload">Planner Payload</label>
-          <textarea id="planPayload" class="plan-json">{
-  "goals": [
-    {
-      "id": "goal_food_001",
-      "name": "Child Nutrition Access",
-      "category": "food",
-      "description": "Reduce child hunger through targeted nutrition routing and local support.",
-      "urgency": 0.95,
-      "impact_score": 0.96,
-      "ethics_weight": 1.0,
-      "feasibility_score": 0.82,
-      "resource_efficiency": 0.76,
-      "time_sensitivity": 0.95,
-      "horizon": "immediate",
-      "beneficiaries": 250000,
-      "dependencies": ["local_warehousing", "school_networks"],
-      "risks": []
-    },
-    {
-      "id": "goal_ai_001",
-      "name": "Trusted AI Public Service Layer",
-      "category": "ai",
-      "description": "Deploy traceable and governed AI assistance for public-impact workflows.",
-      "urgency": 0.72,
-      "impact_score": 0.84,
-      "ethics_weight": 0.93,
-      "feasibility_score": 0.86,
-      "resource_efficiency": 0.83,
-      "time_sensitivity": 0.66,
-      "horizon": "short",
-      "beneficiaries": 300000,
-      "dependencies": ["policy_framework", "audit_logging"],
-      "risks": []
-    }
-  ],
-  "resources": {
-    "budget": 500000,
-    "people": 40,
-    "energy_capacity": 70,
-    "infrastructure_readiness": 0.78,
-    "data_readiness": 0.74,
-    "local_partnership_strength": 0.81,
-    "time_budget_months": 12
-  },
-  "ethics": {
-    "protect_children_weight": 1.0,
-    "reduce_suffering_weight": 1.0,
-    "dignity_weight": 0.95,
-    "sustainability_weight": 0.9,
-    "fairness_weight": 0.92,
-    "long_term_weight": 0.88
-  },
-  "constraints": {
-    "forbidden_categories": [],
-    "max_parallel_goals": 3,
-    "min_ethics_threshold": 0.55,
-    "prefer_fast_impact": true,
-    "require_local_readiness": false
-  }
-}</textarea>
-          <div class="demo-actions">
-            <button class="btn btn-primary" onclick="runPlan()">Run HOPEcore Plan</button>
-            <button class="btn btn-secondary" onclick="loadPlanSample()">Load Default Plan</button>
-          </div>
-          <div class="status" id="planStatus">Waiting for planner execution.</div>
-        </div>
-
-        <div class="demo-panel">
-          <h3>Planner Output</h3>
-          <div class="result">
-            <div class="result-block">
-              <span class="result-label">Planner Summary</span>
-              <div class="result-value" id="planSummary">No planning output yet.</div>
-            </div>
-            <div class="result-block">
-              <span class="result-label">Top Decisions</span>
-              <div class="result-value" id="planDecisions">-</div>
-            </div>
-            <div class="result-block">
-              <span class="result-label">Full Planner JSON</span>
-              <div class="trace-box" id="planOutput">-</div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  </section>
-
-
-
-
-  <section id="food">
-    <div class="container">
-      <div class="section-head">
-        <h2>HOPEverse Food</h2>
-        <p>
-          Prioritize food intervention regions so no child sleeps hungry. This calls <code>/v1/hopeverse/food/plan</code>.
-        </p>
-      </div>
-      <div class="food-wrap">
-        <div class="demo-panel">
-          <h3>Run Food Plan</h3>
-          <label for="foodPayload">Food Payload</label>
-          <textarea id="foodPayload" class="plan-json">{
-  "regions": [
-    {
-      "region": "Izmir",
-      "children_at_risk": 1200,
-      "food_supply": 800,
-      "urgency": 0.92,
-      "local_capacity": 0.70,
-      "logistics": 0.65,
-      "nutrition_quality": 0.55,
-      "storage_readiness": 0.60
-    },
-    {
-      "region": "Diyarbakir",
-      "children_at_risk": 1800,
-      "food_supply": 900,
-      "urgency": 0.95,
-      "local_capacity": 0.58,
-      "logistics": 0.52,
-      "nutrition_quality": 0.48,
-      "storage_readiness": 0.44
-    }
-  ]
-}</textarea>
-          <div class="demo-actions">
-            <button class="btn btn-primary" onclick="runFoodPlan()">Run Food Plan</button>
-            <button class="btn btn-secondary" onclick="loadFoodSample()">Load Food Sample</button>
-          </div>
-          <div class="status" id="foodStatus">Waiting for food planning.</div>
-        </div>
-
-        <div class="demo-panel">
-          <h3>Food Output</h3>
-          <div class="result">
-            <div class="result-block">
-              <span class="result-label">Mission Summary</span>
-              <div class="result-value" id="foodSummary">No food output yet.</div>
-            </div>
-            <div class="result-block">
-              <span class="result-label">Top Regions</span>
-              <div class="result-value" id="foodRegions">-</div>
-            </div>
-            <div class="result-block">
-              <span class="result-label">Full Food JSON</span>
-              <div class="trace-box" id="foodOutput">-</div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  </section>
-
-<section id="did">
-  <div class="container">
-    <div class="section-head">
-      <h2>HOPE DID Identity</h2>
-      <p>Create identity, login, and view reputation.</p>
-    </div>
-
-    <div class="demo-wrap">
-      <div class="demo-panel">
-        <h3>Register</h3>
-        <label>Name</label>
-        <input id="didName" placeholder="your name" />
-
-        <label>Type</label>
-        <select id="didType">
-          <option value="human">human</option>
-          <option value="ai">ai</option>
-          <option value="org">organization</option>
-        </select>
-
-        <div class="demo-actions">
-          <button class="btn btn-primary" onclick="registerDID()">Register</button>
-        </div>
-
-        <div class="status" id="didStatus">Ready</div>
-      </div>
-
-      <div class="demo-panel">
-        <h3>Identity</h3>
-
-        <div class="result">
-          <div class="result-block">
-            <span class="result-label">DID</span>
-            <div class="result-value" id="didValue">-</div>
-          </div>
-
-          <div class="result-block">
-            <span class="result-label">Reputation</span>
-            <div class="result-value" id="didRep">-</div>
-          </div>
-
-          <div class="result-block">
-            <span class="result-label">Trust</span>
-            <div class="result-value" id="didTrust">-</div>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-</section>
-
-
-
-  <section id="chain">
-    <div class="container">
-      <div class="section-head">
-        <h2>HOPEchain explorer</h2>
-        <p>
-          View DID-linked contribution history, signed events, reputation flow, and chain verification directly from the main dashboard.
-        </p>
-      </div>
-      <div class="chain-wrap">
-        <div class="demo-panel">
-          <h3>Chain Control</h3>
-          <div class="form-row">
-            <div>
-              <label for="chainLimit">Event Limit</label>
-              <input id="chainLimit" type="number" value="20" min="1" max="200" />
-            </div>
-            <div>
-              <label for="chainFilter">Actor / DID / Event Filter</label>
-              <input id="chainFilter" placeholder="optional filter" />
-            </div>
-          </div>
-          <div class="demo-actions">
-            <button class="btn btn-primary" onclick="loadChain()">Load HOPEchain</button>
-            <button class="btn btn-secondary" onclick="clearChainFilter()">Clear Filter</button>
-          </div>
-          <div class="status" id="chainStatus">Waiting for HOPEchain load.</div>
-
-          <div class="result" style="margin-top:16px;">
-            <div class="badge-row">
-              <div class="badge"><span class="ok">Chain:</span>&nbsp;<span id="chainOk">-</span></div>
-              <div class="badge"><span class="warn">Checked:</span>&nbsp;<span id="chainChecked">-</span></div>
-              <div class="badge"><span class="ok">Events:</span>&nbsp;<span id="chainEventCount">-</span></div>
-              <div class="badge"><span class="warn">Actors:</span>&nbsp;<span id="chainActorCount">-</span></div>
-            </div>
-            <div class="result-block">
-              <span class="result-label">Chain Verification</span>
-              <div class="result-value" id="chainVerifyText">No verification result yet.</div>
-            </div>
+  <main>
+    <section class="hero">
+      <div class="wrap hero-grid">
+        <div>
+          <div class="eyebrow"><span class="dot"></span><span id="apiLine">Connecting to HOPEtensor API…</span></div>
+          <h1>Human-centered <span class="gradient">DID profile</span> dashboard.</h1>
+          <p class="lead">Single-file production frontend for HOPEverse identity. Register, login, verify profile, and keep API integration clean without lowering the design quality.</p>
+          <div class="hero-actions">
+            <a class="btn primary" href="#dashboard">Open Dashboard</a>
+            <a class="btn" href="https://hopetensor.onrender.com/docs" target="_blank" rel="noreferrer">API Docs</a>
           </div>
         </div>
 
-        <div class="demo-panel">
-          <h3>Reputation Explorer</h3>
-          <div class="chain-rep" id="chainReputation">
-            <div class="result-value">No reputation data loaded yet.</div>
+        <aside class="card status-card card-pad">
+          <div class="status-top">
+            <h2 class="status-title">Live System</h2>
+            <span class="status-chip" id="statusChip">Checking</span>
+          </div>
+          <div class="metric-grid">
+            <div class="metric"><small>Backend</small><strong id="backendMetric">—</strong></div>
+            <div class="metric"><small>DID</small><strong id="didMetric">—</strong></div>
+            <div class="metric"><small>Session</small><strong id="sessionMetric">—</strong></div>
+          </div>
+          <div class="console" id="consoleBox">boot: HOPEverse dashboard initialized</div>
+        </aside>
+      </div>
+    </section>
+
+    <section class="section" id="dashboard">
+      <div class="wrap">
+        <div class="section-head">
+          <div>
+            <h2>DID Access</h2>
+            <p class="sub">Works with Render API. Tokens are stored locally only for dashboard session continuity.</p>
           </div>
         </div>
-      </div>
 
-      <div class="demo-panel" style="margin-top:20px;">
-        <h3>Chain Timeline</h3>
-        <div class="chain-grid" id="chainTimeline">
-          <div class="result-value">No chain events loaded yet.</div>
+        <div class="app-grid">
+          <aside class="card card-pad">
+            <div class="tabs" role="tablist" aria-label="DID actions">
+              <button class="tab active" id="loginTab" type="button">Login</button>
+              <button class="tab" id="registerTab" type="button">Register</button>
+            </div>
+
+            <form class="form" id="loginForm">
+              <label>Email or DID
+                <input id="loginId" autocomplete="username" placeholder="selim@hopeverse.ai or did:hope:..." />
+              </label>
+              <label>Password
+                <input id="loginPassword" type="password" autocomplete="current-password" placeholder="••••••••" />
+              </label>
+              <button class="btn primary" id="loginBtn" type="submit">Login to DID</button>
+            </form>
+
+            <form class="form hidden" id="registerForm">
+              <label>Name
+                <input id="regName" autocomplete="name" placeholder="Selim" />
+              </label>
+              <label>Email
+                <input id="regEmail" type="email" autocomplete="email" placeholder="selim@hopeverse.ai" />
+              </label>
+              <label>Password
+                <input id="regPassword" type="password" autocomplete="new-password" placeholder="Minimum secure password" />
+              </label>
+              <label>Purpose / Mission
+                <textarea id="regPurpose" placeholder="No child sleeps hungry. Ethics before power."></textarea>
+              </label>
+              <button class="btn primary" id="registerBtn" type="submit">Create DID</button>
+            </form>
+          </aside>
+
+          <section class="card card-pad profile-shell">
+            <div class="profile-hero">
+              <div class="avatar" id="avatar">H</div>
+              <div>
+                <h3 id="profileName">Guest Identity</h3>
+                <p id="profileDid">No active DID session yet.</p>
+              </div>
+              <span class="did-badge" id="trustBadge">UNVERIFIED</span>
+            </div>
+
+            <div class="detail-grid">
+              <div class="detail"><small>Email</small><b id="profileEmail">—</b></div>
+              <div class="detail"><small>Status</small><b id="profileStatus">Awaiting login</b></div>
+              <div class="detail"><small>Purpose</small><span id="profilePurpose">Ethics before power. Human-centered. Conscience-aware.</span></div>
+              <div class="detail"><small>Token</small><span class="mono" id="profileToken">No local token</span></div>
+            </div>
+
+            <div class="hero-actions">
+              <button class="btn" id="profileBtn" type="button">Load Profile</button>
+              <button class="btn danger" id="logoutBtn" type="button">Logout</button>
+            </div>
+          </section>
         </div>
       </div>
-    </div>
-  </section>
+    </section>
 
-
-
-
-  <section id="trust">
-    <div class="container">
-      <div class="section-head">
-        <h2>Trust & Coordination Layer</h2>
-        <p>HOPEverse requires three coordinated layers to scale beyond demos: HOPEchain as trust infrastructure, DID as the identity layer, and Governance as the decision layer. Together they form trustable civilization infrastructure.</p>
-      </div>
-      <div class="grid-3">
-        <div class="card">
-          <h3>HOPEchain</h3>
-          <p>Tracks verifiable impact instead of only transactions. It records resource flow, node execution, governance decisions, and measurable outcomes.</p>
-          <ul>
-            <li>Transparent event history</li>
-            <li>Impact-oriented records</li>
-            <li>Corruption and abuse reduction</li>
-            <li>Auditable chain verification</li>
-          </ul>
+    <section class="section" id="principles">
+      <div class="wrap">
+        <div class="section-head">
+          <div>
+            <h2>Civilization UI Layer</h2>
+            <p class="sub">The interface must feel like a serious protocol, not a toy demo.</p>
+          </div>
         </div>
-        <div class="card">
-          <h3>DID</h3>
-          <p>Identity belongs to the individual, not to the platform. The layer is designed for verifiable access, reputation, contribution history, and privacy-aware service participation.</p>
-          <ul>
-            <li>Decentralized identity ownership</li>
-            <li>Selective disclosure model</li>
-            <li>Service access standardization</li>
-            <li>Portable reputation foundation</li>
-          </ul>
-        </div>
-        <div class="card">
-          <h3>Governance</h3>
-          <p>Hybrid governance combines AI-assisted analysis, human oversight, transparent rules, and execution feedback. It keeps scale from collapsing into either chaos or opaque centralization.</p>
-          <ul>
-            <li>Data → AI → Human → Decision</li>
-            <li>Transparent control loops</li>
-            <li>Ethical guardrails via Vicdan</li>
-            <li>Operational accountability</li>
-          </ul>
+        <div class="principles">
+          <div class="principle"><div class="icon">🧠</div><b>AI Intelligence</b><p>Clear actions, calm reasoning, visible system state.</p></div>
+          <div class="principle"><div class="icon">🪪</div><b>DID Identity</b><p>Register, login, profile, trust status, session continuity.</p></div>
+          <div class="principle"><div class="icon">💚</div><b>Ethics Layer</b><p>Purpose and conscience are first-class dashboard objects.</p></div>
+          <div class="principle"><div class="icon">🌍</div><b>Production Ready</b><p>Single file, no build step, safe fallbacks, clean API wrapper.</p></div>
         </div>
       </div>
-    </div>
-  </section>
+    </section>
+  </main>
 
-  <section id="verticals">
-    <div class="container">
-      <div class="section-head">
-        <h2>11 Civilization Verticals</h2>
-        <p>HOPEverse is not a single app. It is a multi-layer civilization architecture built around 11 core verticals that together form a complete system stack.</p>
-      </div>
-      <div class="grid-4">
-        <div class="card"><h3>1. Food</h3><p>Nutrition, agriculture, and child hunger elimination.</p></div>
-        <div class="card"><h3>2. Water</h3><p>Clean water access, purification, and resilient distribution.</p></div>
-        <div class="card"><h3>3. Energy</h3><p>Clean, decentralized, affordable power systems.</p></div>
-        <div class="card"><h3>4. Health</h3><p>Universal healthcare access and preventive systems.</p></div>
-        <div class="card"><h3>5. Education</h3><p>AI-powered learning and lifelong knowledge access.</p></div>
-        <div class="card"><h3>6. Housing</h3><p>Safe shelter, sustainable planning, and resilience.</p></div>
-        <div class="card"><h3>7. Economy</h3><p>Fair value distribution through HOPEconomy.</p></div>
-        <div class="card"><h3>8. Logistics</h3><p>Right resource, right place, right time.</p></div>
-        <div class="card"><h3>9. Governance</h3><p>Transparent coordination and anti-corruption design.</p></div>
-        <div class="card"><h3>10. Technology</h3><p>AI, data, automation, DID, and secure infrastructure.</p></div>
-        <div class="card"><h3>11. Humanity</h3><p>Dignity, cohesion, compassion, and meaning.</p></div>
-        <div class="card"><h3>Integration</h3><p>A breakthrough in one vertical strengthens the whole civilization stack.</p></div>
-      </div>
-    </div>
-  </section>
-
-  <section id="roadmap">
-    <div class="container">
-      <div class="section-head">
-        <h2>2030 Roadmap</h2>
-        <p>
-          2030 is the first irreversible checkpoint: HOPEtensor remains the execution core, while HOPEverse expands into trust, identity, governance, and full civilization coordination.
-        </p>
-      </div>
-      <div class="roadmap">
-        <div class="card">
-          <strong>2025–2026</strong>
-          <h3>Foundation</h3>
-          <p>Core engine deployed, first verticals activated, pilot regions launched, and trustable runtime proven.</p>
-        </div>
-        <div class="card">
-          <strong>2026–2028</strong>
-          <h3>Expansion</h3>
-          <p>Food, Education, Logistics, Water, Energy, and Health systems expand across more regions with stronger AI coordination.</p>
-        </div>
-        <div class="card">
-          <strong>2028–2029</strong>
-          <h3>Integration</h3>
-          <p>All major layers interoperate: HOPEcore, HOPEchain, DID, Governance, and cross-region service orchestration.</p>
-        </div>
-        <div class="card">
-          <strong>2029–2030</strong>
-          <h3>Stabilization</h3>
-          <p>Systems become resilient, trusted, and repeatable. The goal is not perfection, but scalable proof of conscience-centered civilization.</p>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <section id="contact">
-    <div class="container">
-      <div class="cta">
-        <h2>We are not building just another AI tool. We are building HOPEverse.</h2>
-        <p>
-          HOPEverse is built for a future where intelligence, trust, coordination, identity, governance, and human impact must work together. HOPEtensor is the engine that makes the system think. HOPEchain, DID, Governance, and the verticals make the system real.
-        </p>
-        <div class="hero-actions" style="justify-content:center; margin-bottom:0;">
-          <a class="btn btn-primary" href="#demo">Run Demo</a>
-          <a class="btn btn-secondary" href="#architecture">Review Architecture</a>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <footer>
-    <div class="container">
-      HOPEverse — Civilization Operating System powered by HOPEtensor • crafted by Erhan
-    </div>
-  </footer>
+  <div class="toast" id="toast"></div>
 
   <script>
-
     const API_BASE = "https://hopetensor.onrender.com";
+    const STORAGE_KEY = "hopeverse_did_session_v1";
 
-    function apiUrl(path) {
-      return API_BASE + path;
+    const $ = (id) => document.getElementById(id);
+    const state = {
+      token: null,
+      profile: null,
+      apiOnline: false,
+    };
+
+    function log(line, data) {
+      const box = $("consoleBox");
+      const stamp = new Date().toLocaleTimeString();
+      const payload = data ? "\n" + JSON.stringify(data, null, 2) : "";
+      box.textContent = `[${stamp}] ${line}${payload}\n\n` + box.textContent;
     }
 
-    function setStatus(message, kind = "") {
-      const el = document.getElementById("status");
-      el.textContent = message;
-      el.className = "status " + kind;
+    function toast(message) {
+      const t = $("toast");
+      t.textContent = message;
+      t.classList.add("show");
+      clearTimeout(window.__toastTimer);
+      window.__toastTimer = setTimeout(() => t.classList.remove("show"), 3600);
     }
 
-    function loadSample() {
-      document.getElementById("prompt").value = "Explain why single-model AI systems hallucinate and how governed multi-node execution reduces risk in production environments.";
-    }
-
-
-    function loadPlanSample() {
-      document.getElementById("planPayload").value = `{
-  "goals": [
-    {
-      "id": "goal_food_001",
-      "name": "Child Nutrition Access",
-      "category": "food",
-      "description": "Reduce child hunger through targeted nutrition routing and local support.",
-      "urgency": 0.95,
-      "impact_score": 0.96,
-      "ethics_weight": 1.0,
-      "feasibility_score": 0.82,
-      "resource_efficiency": 0.76,
-      "time_sensitivity": 0.95,
-      "horizon": "immediate",
-      "beneficiaries": 250000,
-      "dependencies": ["local_warehousing", "school_networks"],
-      "risks": []
-    },
-    {
-      "id": "goal_ai_001",
-      "name": "Trusted AI Public Service Layer",
-      "category": "ai",
-      "description": "Deploy traceable and governed AI assistance for public-impact workflows.",
-      "urgency": 0.72,
-      "impact_score": 0.84,
-      "ethics_weight": 0.93,
-      "feasibility_score": 0.86,
-      "resource_efficiency": 0.83,
-      "time_sensitivity": 0.66,
-      "horizon": "short",
-      "beneficiaries": 300000,
-      "dependencies": ["policy_framework", "audit_logging"],
-      "risks": []
-    }
-  ],
-  "resources": {
-    "budget": 500000,
-    "people": 40,
-    "energy_capacity": 70,
-    "infrastructure_readiness": 0.78,
-    "data_readiness": 0.74,
-    "local_partnership_strength": 0.81,
-    "time_budget_months": 12
-  },
-  "ethics": {
-    "protect_children_weight": 1.0,
-    "reduce_suffering_weight": 1.0,
-    "dignity_weight": 0.95,
-    "sustainability_weight": 0.9,
-    "fairness_weight": 0.92,
-    "long_term_weight": 0.88
-  },
-  "constraints": {
-    "forbidden_categories": [],
-    "max_parallel_goals": 3,
-    "min_ethics_threshold": 0.55,
-    "prefer_fast_impact": true,
-    "require_local_readiness": false
-  }
-}`;
-    }
-
-    async function runPlan() {
-      const status = document.getElementById("planStatus");
-      const summary = document.getElementById("planSummary");
-      const decisions = document.getElementById("planDecisions");
-      const output = document.getElementById("planOutput");
-
-      status.textContent = "Running HOPEcore planning...";
-      summary.textContent = "Planning...";
-      decisions.textContent = "-";
-      output.textContent = "-";
-
+    function loadSession() {
       try {
-        const payload = JSON.parse(document.getElementById("planPayload").value);
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (!raw) return;
+        const saved = JSON.parse(raw);
+        state.token = saved.token || null;
+        state.profile = saved.profile || null;
+      } catch (_) {}
+    }
 
-        const response = await fetch(apiUrl("/v1/plan"), {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload)
-        });
+    function saveSession() {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({ token: state.token, profile: state.profile }));
+    }
 
-        if (!response.ok) {
-          const text = await response.text();
-          throw new Error(`Plan API error ${response.status}: ${text}`);
+    function clearSession() {
+      state.token = null;
+      state.profile = null;
+      localStorage.removeItem(STORAGE_KEY);
+      renderProfile();
+      toast("DID session cleared.");
+      log("session cleared");
+    }
+
+    async function api(path, options = {}) {
+      const headers = { "Content-Type": "application/json", ...(options.headers || {}) };
+      if (state.token) headers.Authorization = `Bearer ${state.token}`;
+      const res = await fetch(`${API_BASE}${path}`, { ...options, headers });
+      const text = await res.text();
+      let json = null;
+      try { json = text ? JSON.parse(text) : null; } catch { json = { raw: text }; }
+      if (!res.ok) {
+        const msg = json?.detail || json?.message || json?.error || `HTTP ${res.status}`;
+        throw new Error(typeof msg === "string" ? msg : JSON.stringify(msg));
+      }
+      return json;
+    }
+
+    async function firstWorking(paths, options) {
+      let lastError;
+      for (const path of paths) {
+        try {
+          const data = await api(path, options);
+          return { path, data };
+        } catch (err) {
+          lastError = err;
+          log(`endpoint failed: ${path}`, { error: err.message });
         }
+      }
+      throw lastError || new Error("No endpoint matched.");
+    }
 
-        const data = await response.json();
+    function setBusy(buttonId, busy) {
+      const btn = $(buttonId);
+      btn.disabled = busy;
+      if (!btn.dataset.label) btn.dataset.label = btn.textContent;
+      btn.textContent = busy ? "Working…" : btn.dataset.label;
+    }
 
-        summary.textContent = data.planner_summary ?? "-";
-        decisions.innerHTML = Array.isArray(data.decisions)
-          ? data.decisions.map(d => `
-              <div style="margin-bottom:14px;">
-                <strong>#${d.rank} ${d.goal_name}</strong><br>
-                Vicdan: ${d.vicdan_alignment} · Confidence: ${d.confidence}<br>
-                Impact: ${d.expected_impact}<br>
-                Actions: ${(d.recommended_actions || []).join(" • ")}
-              </div>
-            `).join("")
-          : "-";
-        output.textContent = JSON.stringify(data, null, 2);
-        status.textContent = "Planner execution completed.";
-      } catch (error) {
-        summary.textContent = "Planning failed.";
-        output.textContent = String(error);
-        status.textContent = "Planner execution failed.";
+    async function checkHealth() {
+      try {
+        const data = await api("/health", { method: "GET" });
+        state.apiOnline = true;
+        $("statusChip").textContent = "ONLINE";
+        $("statusChip").style.background = "var(--hope)";
+        $("apiLine").textContent = "Connected to HOPEtensor API";
+        $("backendMetric").textContent = "Live";
+        log("health ok", data);
+      } catch (err) {
+        state.apiOnline = false;
+        $("statusChip").textContent = "CHECK API";
+        $("statusChip").style.background = "var(--danger)";
+        $("apiLine").textContent = "API health check failed";
+        $("backendMetric").textContent = "Offline";
+        log("health failed", { error: err.message });
+      }
+      renderProfile();
+    }
+
+    function normalizeProfile(data) {
+      const p = data?.profile || data?.user || data?.identity || data || {};
+      return {
+        name: p.name || p.username || p.display_name || p.full_name || "HOPE Citizen",
+        email: p.email || p.mail || "—",
+        did: p.did || p.did_id || p.id || p.identifier || "did:hope:local-session",
+        purpose: p.purpose || p.mission || p.bio || "Ethics before power. Human-centered. Conscience-aware.",
+        status: p.status || p.trust_status || "verified",
+        raw: p,
+      };
+    }
+
+    function extractToken(data) {
+      return data?.access_token || data?.token || data?.jwt || data?.session_token || data?.auth?.token || null;
+    }
+
+    function renderProfile() {
+      const p = state.profile;
+      const active = Boolean(state.token || p);
+      $("sessionMetric").textContent = active ? "Active" : "Guest";
+      $("didMetric").textContent = p?.did ? "Ready" : "—";
+      if (!p) {
+        $("avatar").textContent = "H";
+        $("profileName").textContent = "Guest Identity";
+        $("profileDid").textContent = "No active DID session yet.";
+        $("profileEmail").textContent = "—";
+        $("profileStatus").textContent = "Awaiting login";
+        $("profilePurpose").textContent = "Ethics before power. Human-centered. Conscience-aware.";
+        $("profileToken").textContent = state.token ? state.token.slice(0, 18) + "…" : "No local token";
+        $("trustBadge").textContent = "UNVERIFIED";
+        return;
+      }
+      $("avatar").textContent = (p.name || "H").trim().charAt(0).toUpperCase();
+      $("profileName").textContent = p.name;
+      $("profileDid").textContent = p.did;
+      $("profileEmail").textContent = p.email;
+      $("profileStatus").textContent = p.status;
+      $("profilePurpose").textContent = p.purpose;
+      $("profileToken").textContent = state.token ? state.token.slice(0, 22) + "…" : "Profile loaded without token";
+      $("trustBadge").textContent = "VERIFIED";
+    }
+
+    async function doLogin(event) {
+      event.preventDefault();
+      setBusy("loginBtn", true);
+      try {
+        const identifier = $("loginId").value.trim();
+        const password = $("loginPassword").value;
+        const { path, data } = await firstWorking(["/did/login", "/login", "/auth/login"], {
+          method: "POST",
+          body: JSON.stringify({ identifier, email: identifier, did: identifier, password })
+        });
+        state.token = extractToken(data) || state.token;
+        state.profile = normalizeProfile(data);
+        saveSession();
+        renderProfile();
+        toast("DID login successful.");
+        log(`login ok via ${path}`, data);
+      } catch (err) {
+        toast(`Login failed: ${err.message}`);
+        log("login failed", { error: err.message });
+      } finally {
+        setBusy("loginBtn", false);
       }
     }
 
-
-
-
-    function loadFoodSample() {
-      document.getElementById("foodPayload").value = `{
-  "regions": [
-    {
-      "region": "Izmir",
-      "children_at_risk": 1200,
-      "food_supply": 800,
-      "urgency": 0.92,
-      "local_capacity": 0.70,
-      "logistics": 0.65,
-      "nutrition_quality": 0.55,
-      "storage_readiness": 0.60
-    },
-    {
-      "region": "Diyarbakir",
-      "children_at_risk": 1800,
-      "food_supply": 900,
-      "urgency": 0.95,
-      "local_capacity": 0.58,
-      "logistics": 0.52,
-      "nutrition_quality": 0.48,
-      "storage_readiness": 0.44
-    }
-  ]
-}`;
-    }
-
-    async function runFoodPlan() {
-      const status = document.getElementById("foodStatus");
-      const summary = document.getElementById("foodSummary");
-      const regions = document.getElementById("foodRegions");
-      const output = document.getElementById("foodOutput");
-
-      status.textContent = "Running HOPEverse Food...";
-      summary.textContent = "Planning...";
-      regions.textContent = "-";
-      output.textContent = "-";
-
+    async function doRegister(event) {
+      event.preventDefault();
+      setBusy("registerBtn", true);
       try {
-        const payload = JSON.parse(document.getElementById("foodPayload").value);
-
-        const response = await fetch(apiUrl("/v1/hopeverse/food/plan"), {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload)
-        });
-
-        if (!response.ok) {
-          const text = await response.text();
-          throw new Error(`Food API error ${response.status}: ${text}`);
-        }
-
-        const data = await response.json();
-
-        summary.textContent =
-          `Mission: ${data.mission}
-` +
-          `Regions: ${data.summary?.regions}
-` +
-          `Children at risk: ${data.summary?.total_children_at_risk}
-` +
-          `Total deficit: ${data.summary?.total_deficit}`;
-
-        regions.innerHTML = Array.isArray(data.top_regions)
-          ? data.top_regions.map(r => `
-              <div style="margin-bottom:14px;">
-                <strong>${r.region}</strong><br>
-                Priority: ${r.priority_score}<br>
-                Deficit: ${r.deficit}<br>
-                Action: ${r.action}
-              </div>
-            `).join("")
-          : "-";
-
-        output.textContent = JSON.stringify(data, null, 2);
-        status.textContent = "Food planning completed.";
-        if (typeof loadChain === "function") setTimeout(loadChain, 250);
-      } catch (error) {
-        summary.textContent = "Food planning failed.";
-        output.textContent = String(error);
-        status.textContent = "Food planning failed.";
-      }
-    }
-
-
-    function clearChainFilter() {
-      document.getElementById("chainFilter").value = "";
-      loadChain();
-    }
-
-    function escapeChainHtml(value) {
-      return String(value ?? "")
-        .replaceAll("&", "&amp;")
-        .replaceAll("<", "&lt;")
-        .replaceAll(">", "&gt;");
-    }
-
-    function computeChainReputation(events) {
-      const map = new Map();
-
-      for (const ev of events) {
-        const key = ev.actor_did || ev.actor_name || "unknown";
-        const current = map.get(key) || {
-          actor_did: ev.actor_did || "-",
-          actor_name: ev.actor_name || "-",
-          actor_type: ev.actor_type || "-",
-          reputation_score: 0.5,
-          trust_score: 0.5,
-          contribution_count: 0,
-          last_event_at: ev.created_at || "-",
+        const payload = {
+          name: $("regName").value.trim(),
+          email: $("regEmail").value.trim(),
+          password: $("regPassword").value,
+          purpose: $("regPurpose").value.trim(),
         };
-
-        current.reputation_score = Math.max(0, Math.min(1, current.reputation_score + (Number(ev.impact_score || 0) * 0.08)));
-        current.trust_score = Math.max(0, Math.min(1, current.trust_score + Number(ev.trust_delta || 0)));
-        current.contribution_count += 1;
-        current.last_event_at = ev.created_at || current.last_event_at;
-
-        map.set(key, current);
-      }
-
-      return Array.from(map.values()).sort((a, b) => b.reputation_score - a.reputation_score);
-    }
-
-    function renderChainReputation(list) {
-      const root = document.getElementById("chainReputation");
-      if (!list.length) {
-        root.innerHTML = '<div class="result-value">No actors matched the current filter.</div>';
-        return;
-      }
-
-      root.innerHTML = list.map(item => `
-        <div class="chain-rep-item">
-          <strong>${escapeChainHtml(item.actor_name)}</strong><br>
-          <span class="result-value">${escapeChainHtml(item.actor_type)}</span>
-          <div class="chain-meta">${escapeChainHtml(item.actor_did)}</div>
-          <div class="result-value" style="margin-top:8px;">Reputation: ${(item.reputation_score * 100).toFixed(1)}%</div>
-          <div class="chain-progress"><div style="width:${(item.reputation_score * 100).toFixed(1)}%"></div></div>
-          <div class="result-value" style="margin-top:8px;">Trust: ${(item.trust_score * 100).toFixed(1)}%</div>
-          <div class="chain-progress"><div style="width:${(item.trust_score * 100).toFixed(1)}%"></div></div>
-          <div class="result-value" style="margin-top:8px;">Contributions: ${item.contribution_count}</div>
-        </div>
-      `).join("");
-    }
-
-    function renderChainTimeline(events) {
-      const root = document.getElementById("chainTimeline");
-      if (!events.length) {
-        root.innerHTML = '<div class="result-value">No chain events matched the current filter.</div>';
-        return;
-      }
-
-      root.innerHTML = events.map(ev => `
-        <div class="chain-card">
-          <div class="badge-row">
-            <div class="badge"><span class="ok">${escapeChainHtml(ev.event_type || "-")}</span></div>
-            <div class="badge">${escapeChainHtml(ev.actor_name || "-")}</div>
-            <div class="badge">${escapeChainHtml(ev.actor_type || "-")}</div>
-            <div class="badge">Impact: ${Number(ev.impact_score || 0).toFixed(2)}</div>
-            <div class="badge">Trust Δ: ${Number(ev.trust_delta || 0).toFixed(2)}</div>
-          </div>
-          <div class="chain-meta">DID: ${escapeChainHtml(ev.actor_did || "-")}</div>
-          <div class="chain-meta">Hash: ${escapeChainHtml(ev.record_hash || "-")}</div>
-          <div class="chain-meta">Prev: ${escapeChainHtml(ev.prev_hash || "-")}</div>
-          <div class="chain-meta">Created: ${escapeChainHtml(ev.created_at || "-")}</div>
-          <pre style="margin-top:10px;">${escapeChainHtml(JSON.stringify(ev.payload || {}, null, 2))}</pre>
-        </div>
-      `).join("");
-    }
-
-    async function loadChain() {
-      const status = document.getElementById("chainStatus");
-      const limit = Number(document.getElementById("chainLimit").value || 20);
-      const filter = document.getElementById("chainFilter").value.trim().toLowerCase();
-
-      status.textContent = "Loading HOPEchain...";
-
-      try {
-        const res = await fetch(apiUrl(`/v1/chain/events?limit=${limit}`));
-        if (!res.ok) {
-          const text = await res.text();
-          throw new Error(`Chain API error ${res.status}: ${text}`);
-        }
-
-        const data = await res.json();
-        let events = Array.isArray(data.events) ? data.events : [];
-
-        if (filter) {
-          events = events.filter(ev =>
-            String(ev.actor_did || "").toLowerCase().includes(filter) ||
-            String(ev.actor_name || "").toLowerCase().includes(filter) ||
-            String(ev.event_type || "").toLowerCase().includes(filter)
-          );
-        }
-
-        const reputation = computeChainReputation(events);
-        const uniqueActors = new Set(events.map(ev => ev.actor_did || ev.actor_name)).size;
-
-        document.getElementById("chainOk").textContent = data.chain_verify?.ok ? "VALID" : "BROKEN";
-        document.getElementById("chainChecked").textContent = data.chain_verify?.checked_records ?? "-";
-        document.getElementById("chainEventCount").textContent = events.length;
-        document.getElementById("chainActorCount").textContent = uniqueActors;
-        document.getElementById("chainVerifyText").textContent = data.chain_verify?.ok
-          ? `Chain verified successfully across ${data.chain_verify.checked_records} records.`
-          : (data.chain_verify?.error || "Chain verification failed.");
-
-        renderChainReputation(reputation);
-        renderChainTimeline(events);
-        status.textContent = "HOPEchain loaded successfully.";
-      } catch (error) {
-        document.getElementById("chainOk").textContent = "ERROR";
-        document.getElementById("chainChecked").textContent = "-";
-        document.getElementById("chainEventCount").textContent = "-";
-        document.getElementById("chainActorCount").textContent = "-";
-        document.getElementById("chainVerifyText").textContent = "No verification result.";
-        document.getElementById("chainReputation").innerHTML = '<div class="result-value">Unable to load reputation view.</div>';
-        document.getElementById("chainTimeline").innerHTML = `<div class="result-value">${escapeChainHtml(String(error))}</div>`;
-        status.textContent = "Failed to load HOPEchain.";
-      }
-    }
-
-
-async function registerDID() {
-  const name = document.getElementById("didName").value;
-  const type = document.getElementById("didType").value;
-
-  const status = document.getElementById("didStatus");
-
-  if (!name) {
-    status.textContent = "Name required";
-    return;
-  }
-
-  status.textContent = "Creating DID...";
-
-  try {
-    const res = await fetch(apiUrl("/v1/did/register"), {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({
-        display_name: name,
-        actor_type: type
-      })
-    });
-
-    if (!res.ok) {
-      const t = await res.text();
-      throw new Error(t);
-    }
-
-    const data = await res.json();
-
-    document.getElementById("didValue").textContent = data.identity.did;
-    document.getElementById("didRep").textContent = data.reputation.reputation_score;
-    document.getElementById("didTrust").textContent = data.reputation.trust_score;
-
-    status.textContent = "DID created successfully";
-
-  } catch (e) {
-    status.textContent = "Error: " + e;
-  }
-}
-
-    async function runDemo() {
-      const prompt = document.getElementById("prompt").value.trim();
-      const policy = document.getElementById("policy").value;
-      const mode = document.getElementById("mode").value;
-
-      if (!prompt) {
-        setStatus("Prompt is required.", "danger");
-        return;
-      }
-
-      setStatus("Running HOPEverse intelligence flow...", "warn");
-      document.getElementById("answer").textContent = "Executing...";
-      document.getElementById("confidence").textContent = "-";
-      document.getElementById("vicdan").textContent = "-";
-      document.getElementById("trace").textContent = "-";
-      document.getElementById("nodes").textContent = "-";
-      document.getElementById("summary").textContent = "-";
-
-      try {
-        const response = await fetch(apiUrl("/v1/reason"), {
+        const { path, data } = await firstWorking(["/did/register", "/register", "/auth/register"], {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            prompt,
-            policy_profile: policy,
-            mode: mode || null
-          })
+          body: JSON.stringify(payload)
         });
-
-        if (!response.ok) {
-          const text = await response.text();
-          throw new Error(`API error ${response.status}: ${text}`);
-        }
-
-        const data = await response.json();
-
-        document.getElementById("answer").textContent = data.answer ?? "-";
-        document.getElementById("confidence").textContent = data.confidence ?? "-";
-        document.getElementById("vicdan").textContent = data.vicdan_status ?? "-";
-        document.getElementById("trace").textContent = data.trace_id ?? "-";
-        document.getElementById("nodes").textContent = Array.isArray(data.selected_nodes)
-          ? data.selected_nodes.join(", ")
-          : "-";
-        document.getElementById("summary").textContent = data.verification_summary ?? "-";
-
-        setStatus("Execution completed. This is a verified decision output.", "ok");
-      } catch (error) {
-        document.getElementById("answer").textContent = "Demo failed. Make sure the single-file HOPEverse server is running and this page is opened from the same server.";
-        document.getElementById("summary").textContent = String(error);
-        setStatus("Execution failed. Check API runtime and CORS/network access.", "danger");
+        state.token = extractToken(data) || state.token;
+        state.profile = normalizeProfile({ ...data, ...payload });
+        saveSession();
+        renderProfile();
+        toast("DID created successfully.");
+        log(`register ok via ${path}`, data);
+      } catch (err) {
+        toast(`Register failed: ${err.message}`);
+        log("register failed", { error: err.message });
+      } finally {
+        setBusy("registerBtn", false);
       }
     }
+
+    async function loadProfile() {
+      setBusy("profileBtn", true);
+      try {
+        const { path, data } = await firstWorking(["/did/profile", "/profile", "/auth/profile", "/me"], { method: "GET" });
+        state.profile = normalizeProfile(data);
+        saveSession();
+        renderProfile();
+        toast("Profile loaded.");
+        log(`profile ok via ${path}`, data);
+      } catch (err) {
+        toast(`Profile load failed: ${err.message}`);
+        log("profile failed", { error: err.message });
+      } finally {
+        setBusy("profileBtn", false);
+      }
+    }
+
+    function activateTab(which) {
+      const login = which === "login";
+      $("loginTab").classList.toggle("active", login);
+      $("registerTab").classList.toggle("active", !login);
+      $("loginForm").classList.toggle("hidden", !login);
+      $("registerForm").classList.toggle("hidden", login);
+    }
+
+    $("loginTab").addEventListener("click", () => activateTab("login"));
+    $("registerTab").addEventListener("click", () => activateTab("register"));
+    $("loginForm").addEventListener("submit", doLogin);
+    $("registerForm").addEventListener("submit", doRegister);
+    $("profileBtn").addEventListener("click", loadProfile);
+    $("logoutBtn").addEventListener("click", clearSession);
+    $("refreshBtn").addEventListener("click", checkHealth);
+
+    loadSession();
+    renderProfile();
+    checkHealth();
   </script>
 </body>
 </html>
