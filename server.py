@@ -26,8 +26,6 @@ CREATE TABLE IF NOT EXISTS users (
 )
 """)
 
-cursor.execute("SELECT * FROM users WHERE email=?", (user_id,))
-user = cursor.fetchone()
 
 
 conn.commit()
@@ -318,13 +316,27 @@ def me_alias(authorization: Optional[str] = Header(default=None)):
     return did_profile(authorization)
 
 
+
+
 @app.post("/v1/reason")
 def reason(payload: dict):
     prompt = payload.get("prompt", "")
-    user_id = payload.get("user_id")   # 👈 BURAYA EKLENİYOR
+    user_id = payload.get("user_id")  # 👈 BURADA TANIMLANIR
+
+    # 👇 BURAYA KOY
+    cursor.execute(
+        "SELECT * FROM users WHERE email=?",
+        (user_id,)
+    )
+    user = cursor.fetchone()
 
     return {
-        "answer": f"[{user_id}] → {prompt}",
+        "answer": f"{user_id} → {prompt}",
         "confidence": 0.9,
         "vicdan_status": "ok"
     }
+
+
+
+
+
