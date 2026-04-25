@@ -26,7 +26,29 @@ CREATE TABLE IF NOT EXISTS users (
 )
 """)
 
+cursor.execute("SELECT * FROM users WHERE email=?", (user_id,))
+user = cursor.fetchone()
+
+
 conn.commit()
+
+@app.post("/v1/did/login")
+def login(payload: dict):
+    email = payload.get("email")
+    password = payload.get("password")
+
+    cursor.execute(
+        "SELECT * FROM users WHERE email=? AND password=?",
+        (email, password)
+    )
+    user = cursor.fetchone()
+
+    if user:
+        return {"status": "ok", "email": email}
+    else:
+        return {"status": "fail"}
+
+    
 
 @app.post("/v1/did/register")
 def register(payload: dict):
@@ -299,15 +321,10 @@ def me_alias(authorization: Optional[str] = Header(default=None)):
 @app.post("/v1/reason")
 def reason(payload: dict):
     prompt = payload.get("prompt", "")
+    user_id = payload.get("user_id")   # 👈 BURAYA EKLENİYOR
 
-    # basit mock (şimdilik)
     return {
-        "answer": f"[HOPEtensor] {prompt[:200]}...",
-        "confidence": 0.91,
-        "vicdan_status": "aligned",
-        "trace_id": "trace_" + str(int(time.time())),
-        "selected_nodes": ["local", "logic", "safety"],
-        "verification_summary": "All nodes agree. No contradiction detected."
+        "answer": f"[{user_id}] → {prompt}",
+        "confidence": 0.9,
+        "vicdan_status": "ok"
     }
-
-

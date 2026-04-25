@@ -629,6 +629,13 @@
       return data;
     }
 
+
+body: JSON.stringify({
+  prompt: prompt,
+  user_id: userEmail   // 👈 LOGIN'den gelen email
+})
+
+
     async function firstWorking(paths, optionsFactory) {
       let lastError;
       for (const path of paths) {
