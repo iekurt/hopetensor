@@ -8,6 +8,52 @@ from fastapi import FastAPI, HTTPException, Header
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, EmailStr
 
+import sqlite3
+
+conn = sqlite3.connect("hope.db", check_same_thread=False)
+cursor = conn.cursor()
+
+cursor.execute("""
+CREATE TABLE IF NOT EXISTS users (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    email TEXT,
+    password TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+)
+""")
+
+conn.commit()
+
+@app.post("/v1/did/register")
+def register(payload: dict):
+    email = payload.get("email")
+    password = payload.get("password")
+
+    cursor.execute(
+        "INSERT INTO users (email, password) VALUES (?, ?)",
+        (email, password)
+    )
+    conn.commit()
+
+    return {
+        "status": "registered",
+        "email": email
+    }
+
+@app.get("/v1/did/users")
+def get_users():
+    cursor.execute("SELECT id, email, created_at FROM users")
+    rows = cursor.fetchall()
+
+    return [
+        {
+            "id": r[0],
+            "email": r[1],
+            "created_at": r[2]
+        }
+        for r in rows
+    ]
+
 
 APP_NAME = "HOPEtensor"
 APP_VERSION = "1.0.0"
