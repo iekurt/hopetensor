@@ -513,9 +513,9 @@
       <div class="demo-wrap">
         <div class="demo-panel">
           <div class="did-tabs">
-            <button type="button" class="btn did-tab active" id="didRegisterTab" onclick="showDIDTab('register')">Register</button>
-            <button type="button" class="btn did-tab" id="didLoginTab" onclick="showDIDTab('login')">Login</button>
-            <button type="button" class="btn did-tab" onclick="loadDIDProfile()">Profile</button>
+            <button class="btn did-tab active" id="didRegisterTab" onclick="showDIDTab('register')">Register</button>
+            <button class="btn did-tab" id="didLoginTab" onclick="showDIDTab('login')">Login</button>
+            <button class="btn did-tab" onclick="loadDIDProfile()">Profile</button>
           </div>
 
           <div id="didRegisterForm" class="did-form active">
@@ -525,14 +525,14 @@
             <label>Password</label><input id="didPassword" type="password" placeholder="minimum 6 characters" />
             <label>Type</label><select id="didType"><option value="human">human</option><option value="ai">ai</option><option value="org">organization</option></select>
             <label>Purpose</label><textarea id="didPurpose">Ethics before power. No child sleeps hungry.</textarea>
-            <div class="demo-actions"><button type="button" class="btn btn-primary" onclick="registerDID()">Register DID</button></div>
+            <div class="demo-actions"><button class="btn btn-primary" onclick="registerDID()">Register DID</button></div>
           </div>
 
           <div id="didLoginForm" class="did-form">
             <h3>Login DID</h3>
             <label>Email or DID</label><input id="didLoginId" placeholder="email or did:hope:..." />
             <label>Password</label><input id="didLoginPassword" type="password" placeholder="password" />
-            <div class="demo-actions"><button type="button" class="btn btn-primary" onclick="loginDID()">Login</button><button type="button" class="btn btn-danger" onclick="logoutDID()">Logout</button></div>
+            <div class="demo-actions"><button class="btn btn-primary" onclick="loginDID()">Login</button><button class="btn btn-danger" onclick="logoutDID()">Logout</button></div>
           </div>
 
           <div class="status" id="didStatus">Ready</div>
@@ -550,7 +550,6 @@
             <div class="result-block"><span class="result-label">Purpose</span><div class="result-value" id="didProfilePurpose">-</div></div>
             <div class="badge-row"><div class="badge"><span class="ok">Reputation:</span>&nbsp;<span id="didRep">-</span></div><div class="badge"><span class="warn">Trust:</span>&nbsp;<span id="didTrust">-</span></div><div class="badge"><span class="ok">Token:</span>&nbsp;<span id="didToken">-</span></div></div>
             <div class="result-block"><span class="result-label">Raw Identity JSON</span><div class="trace-box" id="didRaw">-</div></div>
-            <div class="result-block"><span class="result-label">My Reason History</span><div class="demo-actions" style="margin-top:0;"><button type="button" class="btn btn-secondary" onclick="loadReasonHistory()">Load History</button></div><div class="trace-box" id="reasonHistory">No history loaded yet.</div></div>
           </div>
         </div>
       </div>
@@ -629,6 +628,14 @@
       if (!res.ok) throw new Error(data.detail || data.message || data.error || text || `HTTP ${res.status}`);
       return data;
     }
+
+
+body: JSON.stringify({
+  prompt: prompt,
+  user_id: userEmail   // 👈 LOGIN'den gelen email
+})
+
+
     async function firstWorking(paths, optionsFactory) {
       let lastError;
       for (const path of paths) {
@@ -710,6 +717,7 @@
       document.getElementById("didRegisterForm").classList.toggle("active", isReg);
       document.getElementById("didLoginForm").classList.toggle("active", !isReg);
     }
+
     async function registerDID() {
       const name = document.getElementById("didName").value.trim();
       const email = document.getElementById("didEmail").value.trim();
@@ -718,72 +726,53 @@
       const purpose = document.getElementById("didPurpose").value.trim();
 
       if (!name) { setDIDStatus("Name required"); return; }
-      if (!email) { setDIDStatus("Email required"); return; }
-      if (!password) { setDIDStatus("Password required"); return; }
-
       setDIDStatus("Creating DID...");
 
       try {
-        const data = await apiFetch("/v1/did/register", {
+        const payloadModern = { name, email, password, purpose, actor_type: type, display_name: name };
+        const payloadLegacy = { display_name: name, actor_type: type };
+        const { data } = await firstWorking(["/did/register", "/v1/did/register", "/register"], (path) => ({
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ email, password, name, purpose, actor_type: type, display_name: name })
-        });
-
+          body: JSON.stringify(path.includes("/v1/did/register") && !email ? payloadLegacy : payloadModern)
+        }));
         didToken = extractToken(data) || didToken;
-        didProfile = normalizeProfile({
-          ...data,
-          profile: {
-            ...(data.profile || data.identity || {}),
-            did: data.did || data.email || email,
-            name: name || data.name || email,
-            email: data.email || email,
-            purpose
-          }
-        });
-
+        didProfile = normalizeProfile({ ...data, profile: { ...(data.profile || data.identity || {}), name, email, purpose } });
         saveDIDSession();
         renderDID();
         setDIDStatus("DID created successfully");
-      } catch (e) {
-        setDIDStatus("Register error: " + e.message);
-      }
+      } catch (e) { setDIDStatus("Error: " + e.message); }
     }
+
     async function loginDID() {
       const identifier = document.getElementById("didLoginId").value.trim();
       const password = document.getElementById("didLoginPassword").value;
-      if (!identifier || !password) { setDIDStatus("Email and password required"); return; }
+      if (!identifier || !password) { setDIDStatus("Email/DID and password required"); return; }
       setDIDStatus("Logging in...");
       try {
-        const data = await apiFetch("/v1/did/login", {
+        const { data } = await firstWorking(["/did/login", "/login"], () => ({
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ email: identifier, password })
-        });
-
-        if (data.status && data.status !== "ok") throw new Error("Login failed");
-
+          body: JSON.stringify({ identifier, email: identifier, did: identifier, password })
+        }));
         didToken = extractToken(data) || didToken;
-        didProfile = normalizeProfile({
-          ...data,
-          profile: {
-            ...(data.profile || data.identity || {}),
-            did: data.did || data.email || identifier,
-            name: data.name || identifier,
-            email: data.email || identifier,
-            purpose: data.purpose || "Ethics before power."
-          }
-        });
+        didProfile = normalizeProfile(data);
         saveDIDSession();
         renderDID();
         setDIDStatus("Login successful");
-      } catch (e) {
-        setDIDStatus("Login error: " + e.message);
-      }
+      } catch (e) { setDIDStatus("Login error: " + e.message); }
     }
+
     async function loadDIDProfile() {
-      if (didProfile) { renderDID(); setDIDStatus("Profile loaded from local session"); return; }
-      setDIDStatus("No profile yet. Register or login first.");
+      if (!didToken) { setDIDStatus("No token. Login first."); return; }
+      setDIDStatus("Loading profile...");
+      try {
+        const { data } = await firstWorking(["/did/profile", "/profile", "/me"], () => ({ method: "GET", headers: authHeaders({}) }));
+        didProfile = normalizeProfile(data);
+        saveDIDSession();
+        renderDID();
+        setDIDStatus("Profile loaded");
+      } catch (e) { setDIDStatus("Profile error: " + e.message); }
     }
 
     function logoutDID() {
@@ -792,19 +781,6 @@
       localStorage.removeItem(DID_SESSION_KEY);
       renderDID();
       setDIDStatus("Logged out");
-    }
-    async function loadReasonHistory() {
-      const box = document.getElementById("reasonHistory");
-      const userId = (didProfile && didProfile.email) || document.getElementById("didLoginId").value.trim() || document.getElementById("didEmail").value.trim();
-      if (!userId || userId === "-") { box.textContent = "Register or login first."; return; }
-      box.textContent = "Loading history...";
-      try {
-        const data = await apiFetch("/v1/reason/history?user_id=" + encodeURIComponent(userId));
-        if (!Array.isArray(data) || !data.length) { box.textContent = "No history yet."; return; }
-        box.textContent = data.map((item, i) => "#" + (i + 1) + " · " + (item.created_at || "") + "\nPROMPT: " + (item.prompt || "") + "\nANSWER: " + (item.answer || "")).join("\n\n---\n\n");
-      } catch (e) {
-        box.textContent = "History error: " + e.message;
-      }
     }
 
     function loadSample() { document.getElementById("prompt").value = "Explain why single-model AI systems hallucinate and how governed multi-node execution reduces risk in production environments."; }
@@ -915,7 +891,7 @@ Total deficit: ${data.summary?.total_deficit}`;
       setStatus("Running HOPEverse intelligence flow...", "warn");
       document.getElementById("answer").textContent = "Executing..."; document.getElementById("confidence").textContent = "-"; document.getElementById("vicdan").textContent = "-"; document.getElementById("trace").textContent = "-"; document.getElementById("nodes").textContent = "-"; document.getElementById("summary").textContent = "-";
       try {
-        const data = await apiFetch("/v1/reason", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ prompt, policy_profile: policy, mode: mode || null, user_id: didProfile?.email || document.getElementById("didLoginId").value.trim() || document.getElementById("didEmail").value.trim() || "guest@hopeverse.local" }) });
+        const data = await apiFetch("/v1/reason", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ prompt, policy_profile: policy, mode: mode || null }) });
         document.getElementById("answer").textContent = data.answer ?? "-";
         document.getElementById("confidence").textContent = data.confidence ?? "-";
         document.getElementById("vicdan").textContent = data.vicdan_status ?? "-";
